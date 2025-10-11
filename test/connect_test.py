@@ -38,8 +38,6 @@ class TestDynamicModelImport(unittest.TestCase):
             sys.path.insert(0, str(pkg_path))
             try:
                 _import_models_from_module("test_empty_pkg")
-                # Should complete without error
-                self.assertTrue(True)
             finally:
                 sys.path.remove(str(pkg_path))
 
@@ -219,6 +217,203 @@ DB_MODELS_LOADED = True
                 sys.path.remove(str(pkg_path))
                 close_engine(self.test_db_name)
                 Base.metadata.clear()
+
+
+class TestConnectUtilityFunctions(unittest.TestCase):
+    """Test cases for utility functions in connect module."""
+
+    def test_get_table_name_without_backend(self) -> None:
+        """Test get_table_name without backend_id suffix."""
+        from ry_pg_utils import config
+
+        # Save original value
+        original_add_backend = config.pg_config.add_backend_to_tables
+
+        try:
+            # Disable backend suffix
+            config.pg_config.add_backend_to_tables = False
+            table_name = get_table_name("users")
+            self.assertEqual(table_name, "users")
+        finally:
+            # Restore original value
+            config.pg_config.add_backend_to_tables = original_add_backend
+
+    def test_get_table_name_with_backend(self) -> None:
+        """Test get_table_name with backend_id suffix."""
+        from ry_pg_utils import config
+
+        # Save original value
+        original_add_backend = config.pg_config.add_backend_to_tables
+
+        try:
+            # Enable backend suffix
+            config.pg_config.add_backend_to_tables = True
+            table_name = get_table_name("users", backend_id="test_backend")
+            self.assertEqual(table_name, "users_test_backend")
+        finally:
+            # Restore original value
+            config.pg_config.add_backend_to_tables = original_add_backend
+
+    def test_backend_id_operations(self) -> None:
+        """Test setting and getting backend_id."""
+        # Set a backend_id
+        set_backend_id("test_id_123")
+        self.assertEqual(get_backend_id(), "test_id_123")
+
+        # Set another one
+        set_backend_id("another_id")
+        self.assertEqual(get_backend_id(), "another_id")
+
+    def test_is_session_factory_initialized(self) -> None:
+        """Test checking if session factory is initialized."""
+        # Initially should be False or have existing databases
+        initial_state = is_session_factory_initialized()
+        self.assertIsInstance(initial_state, bool)
+
+
+class TestEngineManagement(PostgresOnlyTestBase):
+    """Test cases for engine management functions."""
+
+    test_db_name: str = "test_engine_db"
+
+    def tearDown(self) -> None:
+        """Clean up after each test."""
+        try:
+            close_engine(self.test_db_name)
+        except Exception:  # pylint: disable=broad-except
+            pass
+
+    def test_init_and_get_engine(self) -> None:
+        """Test initializing and retrieving an engine."""
+        conn_params = self.get_postgres_connection_params()
+        uri = (
+            f"postgresql://{conn_params['user']}:{conn_params['password']}@"
+            f"{conn_params['host']}:{conn_params['port']}/{conn_params['dbname']}"
+        )
+
+        # Initialize engine
+        engine = init_engine(uri, self.test_db_name)
+        self.assertIsNotNone(engine)
+
+        # Get the same engine
+        retrieved_engine = get_engine(self.test_db_name)
+        self.assertIs(engine, retrieved_engine)
+
+    def test_close_engine(self) -> None:
+        """Test closing an engine."""
+        conn_params = self.get_postgres_connection_params()
+        uri = (
+            f"postgresql://{conn_params['user']}:{conn_params['password']}@"
+            f"{conn_params['host']}:{conn_params['port']}/{conn_params['dbname']}"
+        )
+
+        # Initialize and then close
+        init_engine(uri, self.test_db_name)
+        close_engine(self.test_db_name)
+
+        # Getting engine should now fail
+        with self.assertRaises(KeyError):
+            get_engine(self.test_db_name)
+
+    def test_is_database_initialized(self) -> None:
+        """Test checking if database is initialized."""
+        # Should not be initialized initially
+        self.assertFalse(is_database_initialized(self.test_db_name))
+
+        # Initialize it
+        conn_params = self.get_postgres_connection_params()
+        uri = (
+            f"postgresql://{conn_params['user']}:{conn_params['password']}@"
+            f"{conn_params['host']}:{conn_params['port']}/{conn_params['dbname']}"
+        )
+        init_engine(uri, self.test_db_name)
+        _init_session_factory(self.test_db_name)
+
+        # Now should be initialized
+        self.assertTrue(is_database_initialized(self.test_db_name))
+
+    def test_clear_db(self) -> None:
+        """Test clearing all database connections."""
+        conn_params = self.get_postgres_connection_params()
+        uri = (
+            f"postgresql://{conn_params['user']}:{conn_params['password']}@"
+            f"{conn_params['host']}:{conn_params['port']}/{conn_params['dbname']}"
+        )
+
+        # Initialize multiple engines
+        init_engine(uri, "test_db_1")
+        init_engine(uri, "test_db_2")
+
+        # Clear all
+        clear_db()
+
+        # Both should be gone
+        with self.assertRaises(KeyError):
+            get_engine("test_db_1")
+        with self.assertRaises(KeyError):
+            get_engine("test_db_2")
+
+
+class TestManagedSession(PostgresOnlyTestBase):
+    """Test cases for ManagedSession context manager."""
+
+    test_db_name: str = "test_session_db"
+
+    def setUp(self) -> None:
+        """Set up test database for session tests."""
+        conn_params = self.get_postgres_connection_params()
+        uri = (
+            f"postgresql://{conn_params['user']}:{conn_params['password']}@"
+            f"{conn_params['host']}:{conn_params['port']}/{conn_params['dbname']}"
+        )
+        init_engine(uri, self.test_db_name)
+        _init_session_factory(self.test_db_name)
+
+    def tearDown(self) -> None:
+        """Clean up after each test."""
+        try:
+            close_engine(self.test_db_name)
+        except Exception:  # pylint: disable=broad-except
+            pass
+        Base.metadata.clear()
+
+    def test_managed_session_context_manager(self) -> None:
+        """Test ManagedSession context manager."""
+        with ManagedSession(db=self.test_db_name) as session:
+            self.assertIsNotNone(session)
+            # Session should be usable
+            self.assertTrue(hasattr(session, "execute"))
+
+    def test_managed_session_without_init_raises_error(self) -> None:
+        """Test ManagedSession raises error when database not initialized."""
+        from ry_pg_utils import config
+
+        # Save original value
+        original_raise = config.pg_config.raise_on_use_before_init
+
+        try:
+            config.pg_config.raise_on_use_before_init = True
+
+            with self.assertRaises(ValueError):
+                with ManagedSession(db="nonexistent_db") as session:
+                    pass
+        finally:
+            config.pg_config.raise_on_use_before_init = original_raise
+
+    def test_managed_session_without_init_returns_none(self) -> None:
+        """Test ManagedSession returns None when raise_on_use_before_init is False."""
+        from ry_pg_utils import config
+
+        # Save original value
+        original_raise = config.pg_config.raise_on_use_before_init
+
+        try:
+            config.pg_config.raise_on_use_before_init = False
+
+            with ManagedSession(db="nonexistent_db_2") as session:
+                self.assertIsNone(session)
+        finally:
+            config.pg_config.raise_on_use_before_init = original_raise
 
 
 if __name__ == "__main__":

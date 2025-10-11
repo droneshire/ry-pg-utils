@@ -7,6 +7,7 @@ sqlalchemy
 sqlalchemy_utils
 psycopg2-binary
 python-dotenv
+tenacity
 
 # Type stubs
 types-protobuf

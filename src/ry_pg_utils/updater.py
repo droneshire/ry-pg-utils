@@ -3,53 +3,48 @@ import time
 import typing as T
 from dataclasses import dataclass
 
-from pb_types.config_pb2 import (  # pylint: disable=no-name-in-module
-    ConfigMessagePb,
-    DatabaseSettingsPb,
-    PostgresMessagePb,
-    PostgresPb,
-)
-from ry_redis_bus import channels
 from ry_redis_bus.helpers import RedisInfo, message_handler
 from ry_redis_bus.redis_client_base import RedisClientBase
 from ryutils import log
 from ryutils.verbose import Verbose
 
 from ry_pg_utils.connect import close_engine, init_database, is_database_initialized
+from ry_pg_utils.ipc import channels
+from ry_pg_utils.pb_types.database_pb2 import (  # pylint: disable=no-name-in-module
+    DatabaseSettingsPb,
+    PostgresMessagePb,
+    PostgresPb,
+)
 from ry_pg_utils.postgres_info import PostgresInfo
 
 DB_RETRY_TIME = 5.0
 
 
 def get_database_settings(
-    message_pb: ConfigMessagePb, backend_id: str, verbose: bool = False
+    message_pb: DatabaseSettingsPb, backend_id: str, verbose: bool = False
 ) -> T.Optional[PostgresInfo]:
-    for user, config in message_pb.config.items():
-        config_pb: DatabaseSettingsPb = config.databaseSettings
-        raw_db_config_pb = config_pb.postgres.get(backend_id, None)
+    raw_db_config_pb = message_pb.postgres.get(backend_id, None)
 
-        if raw_db_config_pb is None:
-            continue
+    if raw_db_config_pb is None:
+        return None
 
-        if not config_pb.primaryDatabase:
-            continue
+    if not message_pb.primaryDatabase:
+        return None
 
-        db_config_pb: PostgresPb = raw_db_config_pb
+    db_config_pb: PostgresPb = raw_db_config_pb
 
-        if verbose:
-            log.print_normal(f"Received database settings from user {user}:\n{db_config_pb}")
+    if verbose:
+        log.print_normal(f"Received database settings {backend_id}:\n{db_config_pb}")
 
-        database_settings_msg = PostgresInfo(
-            db_name=db_config_pb.database,
-            user=db_config_pb.user,
-            password=db_config_pb.password,
-            host=db_config_pb.host,
-            port=db_config_pb.port,
-        )
+    database_settings_msg = PostgresInfo(
+        db_name=db_config_pb.database,
+        user=db_config_pb.user,
+        password=db_config_pb.password,
+        host=db_config_pb.host,
+        port=db_config_pb.port,
+    )
 
-        return database_settings_msg
-
-    return None
+    return database_settings_msg
 
 
 @dataclass
@@ -89,7 +84,7 @@ class DbUpdater(RedisClientBase):
         self.logging_error_db_callback = logging_error_db_callback
 
     @message_handler
-    def handle_config_message(self, message_pb: ConfigMessagePb) -> None:
+    def handle_database_config_message(self, message_pb: DatabaseSettingsPb) -> None:
         database_settings = get_database_settings(message_pb, backend_id=self.backend_id)
 
         if database_settings is not None:
@@ -110,7 +105,7 @@ class DbUpdater(RedisClientBase):
             self.postgres_info = PostgresInfo.null()
             log.print_fail(f"DbUpdater initialized with null database info: {self.postgres_info}")
 
-            self.subscribe(channels.CONFIG_CHANNEL, self.handle_config_message)
+            self.subscribe(channels.DATABASE_CONFIG_CHANNEL, self.handle_database_config_message)
 
     def update_db(self, postgres_info: PostgresInfo) -> None:
         self.postgres_info = postgres_info
@@ -176,7 +171,7 @@ class DbUpdater(RedisClientBase):
 
         def log_print_callback(message: str) -> None:
             if self.logging_error_db_callback:
-                self.logging_error_db_callback(message, db_name=self.postgres_info.db_name)
+                self.logging_error_db_callback(message, self.postgres_info.db_name)
 
         log.update_callback(log_print_callback)
 

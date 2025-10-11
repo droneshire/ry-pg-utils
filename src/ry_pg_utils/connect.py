@@ -9,8 +9,10 @@ from sqlalchemy import Column, String, create_engine, event
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, declared_attr, scoped_session, sessionmaker
+from sqlalchemy.orm.decl_api import DeclarativeMeta
 from sqlalchemy.orm.scoping import ScopedSession
 from sqlalchemy_utils import database_exists
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ry_pg_utils import config
 
@@ -32,6 +34,9 @@ if config.pg_config.add_backend_to_all:
 else:
     Base = declarative_base(name="Base")
 
+# Add type annotation for Base
+Base: DeclarativeMeta  # type: ignore
+
 
 def get_table_name(
     base_name: str, verbose: bool = False, backend_id: str = config.pg_config.backend_id
@@ -48,15 +53,22 @@ def get_table_name(
 def init_engine(uri: str, db: str, **kwargs: T.Any) -> Engine:
     global ENGINE  # pylint: disable=global-variable-not-assigned
     if db not in ENGINE:
-        defaults = {
-            "pool_recycle": 3600,
-            "pool_pre_ping": True,
-            "pool_size": 5,
-            "max_overflow": 10,
+        # Add pool settings to automatically recycle connections
+        default_pool_settings = {
+            "pool_recycle": 3600,  # Recycle connections after 1 hour
+            "pool_pre_ping": True,  # Enable connection health checks
+            "pool_size": 5,  # Maintain a pool of connections
+            "max_overflow": 10,  # Allow up to 10 additional connections
         }
-        for key, val in defaults.items():
-            kwargs.setdefault(key, val)
+        # Update kwargs with defaults if not already set
+        for key, value in default_pool_settings.items():
+            kwargs.setdefault(key, value)
         ENGINE[db] = create_engine(uri, **kwargs)
+    return ENGINE[db]
+
+
+def get_engine(db: str) -> Engine:
+    global ENGINE  # pylint: disable=global-variable-not-assigned
     return ENGINE[db]
 
 
@@ -73,17 +85,25 @@ def close_engine(db: str) -> None:
     if db in ENGINE:
         ENGINE[db].dispose()
         del ENGINE[db]
-    THREAD_SAFE_SESSION_FACTORY.pop(db, None)
+    if db in THREAD_SAFE_SESSION_FACTORY:
+        del THREAD_SAFE_SESSION_FACTORY[db]
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=lambda e: isinstance(e, (OperationalError, TimeoutError)),
+)
 def _init_session_factory(db: str) -> ScopedSession:
     """Initialize the THREAD_SAFE_SESSION_FACTORY."""
     global ENGINE, THREAD_SAFE_SESSION_FACTORY  # pylint: disable=global-variable-not-assigned
     if db not in ENGINE:
-        raise ValueError("Call init_engine before initializing session factory for {db}!")
+        raise ValueError(
+            "Initialize ENGINE by calling init_engine before calling _init_session_factory!"
+        )
     if db not in THREAD_SAFE_SESSION_FACTORY:
-        factory = sessionmaker(bind=ENGINE[db])
-        THREAD_SAFE_SESSION_FACTORY[db] = scoped_session(factory)
+        session_factory = sessionmaker(bind=ENGINE[db])
+        THREAD_SAFE_SESSION_FACTORY[db] = scoped_session(session_factory)
     return THREAD_SAFE_SESSION_FACTORY[db]
 
 
@@ -100,9 +120,15 @@ def receive_before_flush(session: ScopedSession, _flush_context: T.Any, _instanc
     backend_id = get_backend_id()
     if not backend_id:
         return
-    for inst in session.dirty | session.new:
-        if getattr(inst, "backend_id", None) is None:
-            inst.backend_id = backend_id
+
+    # Automatically add backend_id to instances that have it as a field
+    for instance in session.dirty:
+        if hasattr(instance, "backend_id") and instance.backend_id is None:
+            instance.backend_id = backend_id
+
+    for instance in session.new:
+        if hasattr(instance, "backend_id") and instance.backend_id is None:
+            instance.backend_id = backend_id
 
 
 def is_session_factory_initialized() -> bool:
@@ -128,14 +154,29 @@ def ManagedSession(  # pylint: disable=invalid-name
     """
     global THREAD_SAFE_SESSION_FACTORY  # pylint: disable=global-variable-not-assigned
     if db is None:
-        db = next(iter(THREAD_SAFE_SESSION_FACTORY), None)
+        # assume we're just using the default db
+        db = list(THREAD_SAFE_SESSION_FACTORY.keys())[0]
 
-    if not db or db not in THREAD_SAFE_SESSION_FACTORY:
+    if db not in THREAD_SAFE_SESSION_FACTORY:
         if config.pg_config.raise_on_use_before_init:
-            raise ValueError(f"Session factory for {db} not initialized.")
-        log.print_fail(f"Session factory for {db} not initialized.")
+            raise ValueError(f"Call _init_session_factory for {db} before using ManagedSession!")
+        log.print_fail(f"Call _init_session_factory for {db} before using ManagedSession!")
         yield None
         return
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=lambda e: isinstance(e, OperationalError),
+    )
+    def execute_with_retry(session: ScopedSession) -> T.Iterator[ScopedSession]:
+        try:
+            yield session
+            session.commit()
+            session.flush()
+        except Exception:
+            session.rollback()
+            raise
 
     session = THREAD_SAFE_SESSION_FACTORY[db]()
 
@@ -143,15 +184,7 @@ def ManagedSession(  # pylint: disable=invalid-name
         set_backend_id(backend_id)
 
     try:
-        yield session
-        session.commit()
-    except OperationalError as error:
-        session.rollback()
-        log.print_fail(f"Database operation failed: {error}")
-        raise
-    except Exception:
-        session.rollback()
-        raise
+        yield from execute_with_retry(session)
     finally:
         # source:
         # https://stackoverflow.com/questions/
@@ -187,7 +220,7 @@ def _import_models_from_module(module_path: str) -> None:
             return
 
         # Walk through all submodules
-        for importer, modname, ispkg in pkgutil.walk_packages(
+        for _, modname, _ in pkgutil.walk_packages(
             path=package_path,
             prefix=f"{module_path}.",
         ):
