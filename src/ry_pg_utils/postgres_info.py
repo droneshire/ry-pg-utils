@@ -42,3 +42,6 @@ class PostgresInfo:
         ]
         values_string = "\n\t".join(values)
         return f"PostgresInfo({values_string})"
+
+    def __repr__(self) -> str:
+        return self.__str__()
