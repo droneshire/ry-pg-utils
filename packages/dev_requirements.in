@@ -7,9 +7,16 @@ pylint
 pylint-protobuf
 ruff
 
+# Utils
+pandas
+paramiko
+pyspark
+
 # Type checking
 mypy
 mypy-protobuf
+pandas-stubs
+types-paramiko
 types-protobuf
 
 # Testing and coverage

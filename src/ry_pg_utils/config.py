@@ -18,6 +18,10 @@ class Config:
     add_backend_to_all: bool
     add_backend_to_tables: bool
     raise_on_use_before_init: bool
+    ssh_host: str | None
+    ssh_port: int | None
+    ssh_user: str | None
+    ssh_key_path: str | None
 
 
 dotenv.load_dotenv()
@@ -25,6 +29,9 @@ dotenv.load_dotenv()
 # Parse POSTGRES_PORT with proper None handling for mypy
 _postgres_port_str = os.getenv("POSTGRES_PORT")
 _postgres_port = int(_postgres_port_str) if _postgres_port_str is not None else None
+
+_ssh_port_str = os.getenv("SSH_PORT")
+_ssh_port = int(_ssh_port_str) if _ssh_port_str is not None else None
 
 pg_config = Config(
     postgres_host=os.getenv("POSTGRES_HOST"),
@@ -41,4 +48,8 @@ pg_config = Config(
     add_backend_to_all=True,
     add_backend_to_tables=True,
     raise_on_use_before_init=True,
+    ssh_host=os.getenv("SSH_HOST"),
+    ssh_port=_ssh_port,
+    ssh_user=os.getenv("SSH_USER"),
+    ssh_key_path=os.getenv("SSH_KEY_PATH"),
 )

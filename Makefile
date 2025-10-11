@@ -192,6 +192,7 @@ clean:
 	rm -rf .coverage
 	rm -rf .pytest_cache
 	rm -rf dist
+	rm -rf packages/*.txt
 
 
 .PHONY: init install install_dev copy_proto format check_format \
