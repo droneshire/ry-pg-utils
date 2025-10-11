@@ -9,7 +9,7 @@ Run at the end of every long run action that is taken. In other words, after a f
 1. `cd` to the root directory
 2. Ensure the pyenv is sourced: `source ./venv-dev/bin/activate` or `source ./venv/bin/activate`
 3. Run `make format`
-4. Run `make lint`
+4. Run `make lint_full`
 5. Run `make test`
 
 ## Constraints

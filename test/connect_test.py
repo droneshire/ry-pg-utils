@@ -8,7 +8,23 @@ import unittest
 from pathlib import Path
 from test.postgres_test_base import PostgresOnlyTestBase
 
-from ry_pg_utils.connect import Base, _import_models_from_module, close_engine, init_database
+from ry_pg_utils import config
+from ry_pg_utils.connect import (
+    Base,
+    ManagedSession,
+    _import_models_from_module,
+    _init_session_factory,
+    clear_db,
+    close_engine,
+    get_backend_id,
+    get_engine,
+    get_table_name,
+    init_database,
+    init_engine,
+    is_database_initialized,
+    is_session_factory_initialized,
+    set_backend_id,
+)
 
 
 class TestDynamicModelImport(unittest.TestCase):
@@ -224,7 +240,6 @@ class TestConnectUtilityFunctions(unittest.TestCase):
 
     def test_get_table_name_without_backend(self) -> None:
         """Test get_table_name without backend_id suffix."""
-        from ry_pg_utils import config
 
         # Save original value
         original_add_backend = config.pg_config.add_backend_to_tables
@@ -240,7 +255,6 @@ class TestConnectUtilityFunctions(unittest.TestCase):
 
     def test_get_table_name_with_backend(self) -> None:
         """Test get_table_name with backend_id suffix."""
-        from ry_pg_utils import config
 
         # Save original value
         original_add_backend = config.pg_config.add_backend_to_tables
@@ -386,7 +400,6 @@ class TestManagedSession(PostgresOnlyTestBase):
 
     def test_managed_session_without_init_raises_error(self) -> None:
         """Test ManagedSession raises error when database not initialized."""
-        from ry_pg_utils import config
 
         # Save original value
         original_raise = config.pg_config.raise_on_use_before_init
@@ -395,14 +408,13 @@ class TestManagedSession(PostgresOnlyTestBase):
             config.pg_config.raise_on_use_before_init = True
 
             with self.assertRaises(ValueError):
-                with ManagedSession(db="nonexistent_db") as session:
+                with ManagedSession(db="nonexistent_db"):
                     pass
         finally:
             config.pg_config.raise_on_use_before_init = original_raise
 
     def test_managed_session_without_init_returns_none(self) -> None:
         """Test ManagedSession returns None when raise_on_use_before_init is False."""
-        from ry_pg_utils import config
 
         # Save original value
         original_raise = config.pg_config.raise_on_use_before_init
