@@ -1,6 +1,10 @@
-from pb_types.database_pb2 import DatabaseConfigPb  # pylint: disable=no-name-in-module
-from pb_types.database_pb2 import DatabaseNotificationPb  # pylint: disable=no-name-in-module
-from pb_types.database_pb2 import DatabaseSettingsPb  # pylint: disable=no-name-in-module
+from ry_pg_utils.pb_types.database_pb2 import DatabaseConfigPb  # pylint: disable=no-name-in-module
+from ry_pg_utils.pb_types.database_pb2 import (
+    DatabaseNotificationPb,
+)  # pylint: disable=no-name-in-module
+from ry_pg_utils.pb_types.database_pb2 import (
+    DatabaseSettingsPb,
+)  # pylint: disable=no-name-in-module
 from ry_redis_bus.channels import Channel
 
 # Channels
