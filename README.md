@@ -171,6 +171,7 @@ from ry_pg_utils.connect import (
 ```
 
 **Key Features:**
+
 - Thread-local backend ID tracking
 - Connection pooling with configurable parameters (pool_size, max_overflow, pool_recycle)
 - Automatic connection recovery with retry logic (using tenacity)
@@ -207,6 +208,7 @@ exists = db.inst_is_in_db(
 ```
 
 **Supported Protocol Buffer Types:**
+
 - `int32`, `int64`, `uint32`, `uint64` → PostgreSQL `Integer`
 - `float`, `double` → PostgreSQL `Float`
 - `bool` → PostgreSQL `Boolean`
@@ -606,11 +608,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Author
 
-Ross Yeager - ryeager12@email.com
+Ross Yeager - `ryeager12@email.com`
 
 ## Changelog
 
 ### Version 1.0.2 (Current)
+
 - PostgreSQL LISTEN/NOTIFY support with triggers and notifications
 - NotificationListener class for background notification handling
 - Automatic connection health checks with pool_pre_ping
@@ -619,6 +622,7 @@ Ross Yeager - ryeager12@email.com
 - Improved error handling and connection recovery
 
 ### Version 1.0.0
+
 - Initial release
 - Database connection management with pooling
 - Dynamic table creation from Protocol Buffers

@@ -105,6 +105,13 @@ class DbQuery(abc.ABC):
 
         # Copy the database locally
         log.print_normal("Copying database locally...")
+
+        # Validate required parameters
+        assert self.ssh_host is not None, "SSH host is required"
+        assert self.ssh_port is not None, "SSH port is required"
+        assert self.ssh_user is not None, "SSH user is required"
+        assert self.ssh_pkey is not None, "SSH private key path is required"
+
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(
@@ -134,6 +141,7 @@ class DbQuery(abc.ABC):
         client.close()
 
     def _import_local_database(self, local_db_path: str, temp_db_name: str) -> None:
+        assert self.postgres_password is not None, "Postgres password is required"
         os.environ["PGPASSWORD"] = self.postgres_password
 
         # Check if the temporary database already exists
@@ -197,6 +205,14 @@ class DbQuery(abc.ABC):
             self.ssh_user,
             self.ssh_pkey,
         )
+
+        # Validate required parameters
+        assert self.ssh_host is not None, "SSH host is required"
+        assert self.ssh_port is not None, "SSH port is required"
+        assert self.ssh_user is not None, "SSH user is required"
+        assert self.ssh_pkey is not None, "SSH private key path is required"
+        assert self.postgres_port is not None, "Postgres port is required"
+
         self.ssh_tunnel = modern_ssh_tunnel.SSHTunnelForwarder(
             (self.ssh_host, self.ssh_port),
             ssh_username=self.ssh_user,
@@ -245,11 +261,18 @@ class DbQuery(abc.ABC):
         log.print_ok_arrow("Connection to the database closed successfully.")
 
     def copy_db_local(self, local_db_path: str) -> None:
+        assert self.db_name is not None, "Database name is required"
         self._maybe_copy_database_locally(local_db_path=local_db_path)
         self._import_local_database(local_db_path=local_db_path, temp_db_name=self.db_name)
 
     def run_command(self, command: str) -> None:
         """Run a command on the remote server via direct SSH connection."""
+        # Validate required parameters
+        assert self.ssh_host is not None, "SSH host is required"
+        assert self.ssh_port is not None, "SSH port is required"
+        assert self.ssh_user is not None, "SSH user is required"
+        assert self.ssh_pkey is not None, "SSH private key path is required"
+
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -279,12 +302,17 @@ class DbQuery(abc.ABC):
 class DbQueryPsycopg2(DbQuery):
 
     def connect(self, use_ssh_tunnel: bool = False) -> None:
+        postgres_host: str
+        bind_port: int
+
         if use_ssh_tunnel:
             self._establish_ssh_tunnel()
             assert self.ssh_tunnel is not None, "SSH tunnel is not active."
             postgres_host = self.LOCAL_HOST
             bind_port = self.ssh_tunnel.local_bind_port
         else:
+            assert self.postgres_host is not None, "Postgres host is required"
+            assert self.postgres_port is not None, "Postgres port is required"
             postgres_host = self.postgres_host
             bind_port = self.postgres_port
 
@@ -370,7 +398,11 @@ class DbQuerySpark(DbQuery):
             f"jdbc:postgresql://{self.postgres_host}:{self.postgres_port}/{self.db_name}"
         )
 
-        self.connection_properties = {
+        # Validate required parameters for Spark connection
+        assert self.postgres_user is not None, "Postgres user is required"
+        assert self.postgres_password is not None, "Postgres password is required"
+
+        self.connection_properties: T.Dict[str, str] = {
             "user": self.postgres_user,
             "password": self.postgres_password,
             "driver": "org.postgresql.Driver",
