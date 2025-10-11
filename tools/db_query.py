@@ -300,6 +300,10 @@ class DbQuery(abc.ABC):
 
 
 class DbQueryPsycopg2(DbQuery):
+    def __init__(self, *args: T.Any, **kwargs: T.Any) -> None:
+        super().__init__(*args, **kwargs)
+        # Store the actual connection URI for pandas queries
+        self._connection_uri: str | None = None
 
     def connect(self, use_ssh_tunnel: bool = False) -> None:
         postgres_host: str
@@ -316,6 +320,12 @@ class DbQueryPsycopg2(DbQuery):
             postgres_host = self.postgres_host
             bind_port = self.postgres_port
 
+        # Store the actual connection URI for pandas
+        self._connection_uri = (
+            f"postgresql://{self.postgres_user}:{self.postgres_password}@"
+            f"{postgres_host}:{bind_port}/{self.postgres_database}"
+        )
+
         log.print_normal(f"PostgreSQL bind port: {self.postgres_host} -> {self.postgres_port}")
         # Connect to the PostgreSQL database
         self.conn = psycopg2.connect(
@@ -326,6 +336,28 @@ class DbQueryPsycopg2(DbQuery):
             password=self.postgres_password,
         )
         log.print_ok_arrow("Connection to the database established successfully.")
+
+    def query(self, query: str, verbose: bool = False) -> pd.DataFrame:
+        """Override query to use connection URI for pandas."""
+        start_time = time.time()
+
+        if verbose:
+            log.print_normal("=" * 80)
+            log.print_normal(query)
+            log.print_normal("=" * 80)
+
+        try:
+            # Use the actual connection URI to avoid pandas warning
+            connection_uri = self._connection_uri if self._connection_uri else self.postgres_uri
+            df = pd.read_sql_query(query, connection_uri)
+            time_delta = time.time() - start_time
+            if verbose:
+                log.print_ok_arrow(f"Time taken to query database: {time_delta:.2f} seconds")
+            return T.cast(pd.DataFrame, df)
+        except Exception as e:  # pylint: disable=broad-except
+            log.print_normal(f"Error executing query: {e}")
+
+        return pd.DataFrame()
 
     def clear(self, table: str) -> None:
         if self.conn is None:
