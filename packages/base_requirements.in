@@ -5,7 +5,9 @@ ry_redis_bus
 ryutils
 sqlalchemy
 sqlalchemy_utils
+psycopg2-binary
 python-dotenv
 
 # Type stubs
 types-protobuf
+types-psycopg2

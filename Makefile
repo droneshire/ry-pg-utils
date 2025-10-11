@@ -29,7 +29,7 @@ RUN_PY_DIRECT = PYTHONPATH=$(PY_PATH) $(PYTHON)
 PY_FIND_COMMAND = find . -name '*.py' | grep -vE "($(PY_VENV_REL_PATH)|$(PY_VENV_DEV_REL_PATH)|pb_types)"
 PY_MODIFIED_FIND_COMMAND = git diff --name-only --diff-filter=AM HEAD | grep '\.py$$' | grep -vE "($(PY_VENV_REL_PATH)|$(PY_VENV_DEV_REL_PATH)|pb_types)"
 BLACK_CMD = $(RUN_PY) black --line-length 100 $(shell $(PY_FIND_COMMAND))
-MYPY_CONFIG=$(PY_PATH)/mypy_config.ini
+MYPY_CONFIG=$(PWD)/mypy_config.ini
 
 PROTO_PATH=$(TYPES_PATH)/proto
 PROTO_FIND_COMMAND=`find $(PROTO_PATH) -type f -name '*.proto'`

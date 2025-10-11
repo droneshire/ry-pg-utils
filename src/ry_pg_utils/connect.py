@@ -1,4 +1,6 @@
 import contextlib
+import importlib
+import pkgutil
 import threading
 import typing as T
 
@@ -163,13 +165,67 @@ def is_database_initialized(db: str) -> bool:
     return db in THREAD_SAFE_SESSION_FACTORY
 
 
+def _import_models_from_module(module_path: str) -> None:
+    """
+    Dynamically import all model classes from a given module path.
+
+    This ensures all SQLAlchemy models are registered with Base.metadata
+    before creating tables.
+
+    Args:
+        module_path: Dot-separated module path (e.g., 'database.models')
+    """
+    try:
+        # Import the base module
+        base_module = importlib.import_module(module_path)
+
+        # Get the package path
+        if hasattr(base_module, "__path__"):
+            package_path = base_module.__path__
+        else:
+            # It's a single module, not a package
+            return
+
+        # Walk through all submodules
+        for importer, modname, ispkg in pkgutil.walk_packages(
+            path=package_path,
+            prefix=f"{module_path}.",
+        ):
+            try:
+                importlib.import_module(modname)
+            except Exception as e:  # pylint: disable=broad-except
+                log.print_warn(f"Failed to import {modname}: {e}")
+                continue
+
+        log.print_ok_blue(f"Imported models from {module_path}")
+    except ModuleNotFoundError:
+        log.print_warn(f"Models module not found: {module_path}")
+    except Exception as e:  # pylint: disable=broad-except
+        log.print_warn(f"Error importing models from {module_path}: {e}")
+
+
 def init_database(
     db_name: str,
     db_user: str = "",
     db_password: str = "",
     db_host: str = "localhost",
     db_port: int = 5432,
+    models_module: T.Optional[str] = None,
 ) -> None:
+    """
+    Initialize a database connection and create tables.
+
+    Args:
+        db_name: Name of the database
+        db_user: Database username
+        db_password: Database password
+        db_host: Database host
+        db_port: Database port
+        models_module: Optional dot-separated module path to your models
+                      (e.g., 'database.models' or 'myapp.db.models').
+                      All model classes in this module will be automatically
+                      imported to register them with SQLAlchemy.
+    """
     log.print_normal(f"Initializing database {db_name} at {db_host}:{db_port}")
 
     if db_user and db_password:
@@ -186,21 +242,9 @@ def init_database(
     else:
         log.print_ok_blue("Creating new database!")
 
-    # We need these imports here to avoid circular imports and to ensure
-    # that the models have been imported before we create the tables and
-    # in the proper order based on relationships.
-
-    # pylint: disable=import-outside-toplevel
-    # pylint: disable=unused-import
-    # isort: off
-    from database.models.user import User  # noqa: F401
-    from database.models.author import Author  # noqa: F401
-    from database.models.message import Message  # noqa: F401
-    from database.models.alert_timing import AlertTiming  # noqa: F401
-
-    # isort: on
-    # pylint: enable=import-outside-toplevel
-    # pylint: enable=unused-import
+    # Import models if module path provided
+    if models_module:
+        _import_models_from_module(models_module)
 
     try:
         Base.metadata.create_all(bind=engine)
