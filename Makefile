@@ -13,9 +13,11 @@ PY_VENV_DEV_REL_PATH=$(subst $(PWD)/,,$(PY_VENV_DEV))
 # Python execution
 PY_PATH=$(PWD)
 RUN_PY = PYTHONPATH=$(PY_PATH) $(PYTHON) -m
+RUN_PY_DIRECT = PYTHONPATH=$(PY_PATH) $(PYTHON)
 
 # Formatting and linting
-PY_FIND_COMMAND = find . -name '*.py' | grep -vE "($(PY_VENV_REL_PATH))"
+PY_FIND_COMMAND = find . -name '*.py' | grep -vE "($(PY_VENV_REL_PATH)|$(PY_VENV_DEV_REL_PATH))"
+PY_MODIFIED_FIND_COMMAND = git diff --name-only --diff-filter=AM HEAD | grep '\.py$$' | grep -vE "($(PY_VENV_REL_PATH)|$(PY_VENV_DEV_REL_PATH))"
 BLACK_CMD = $(RUN_PY) black --line-length 100 $(shell $(PY_FIND_COMMAND))
 MYPY_CONFIG=$(PY_PATH)/mypy_config.ini
 
@@ -49,27 +51,37 @@ install_dev:
 	$(MAYBE_UV) pip install -r $(PACKAGES_PATH)/requirements-dev.txt
 
 format: isort
-	$(RUN_PY_DIRECT) ruff check --fix $(shell $(PY_FIND_COMMAND))
+	$(RUN_PY) ruff check --fix $(shell $(PY_FIND_COMMAND))
 	$(BLACK_CMD)
 
 check_format_fast:
-	$(RUN_PY_DIRECT) ruff check --diff $(shell $(PY_FIND_COMMAND))
+	$(RUN_PY) ruff check --diff $(shell $(PY_FIND_COMMAND))
 	$(BLACK_CMD) --check --diff
 
 check_format: check_format_fast
 	echo "Format check complete"
 
 mypy_mod:
-	$(RUN_PY_DIRECT) mypy $(shell $(PY_MODIFIED_FIND_COMMAND)) --config-file $(MYPY_CONFIG) --namespace-packages
+	@MODIFIED_FILES=$$($(PY_MODIFIED_FIND_COMMAND)); \
+	if [ -n "$$MODIFIED_FILES" ]; then \
+		$(RUN_PY) mypy $$MODIFIED_FILES --config-file $(MYPY_CONFIG) --namespace-packages; \
+	else \
+		echo "No modified Python files to check with mypy"; \
+	fi
 
 mypy:
-	$(RUN_PY_DIRECT) mypy $(shell $(PY_FIND_COMMAND)) --config-file $(MYPY_CONFIG)
+	$(RUN_PY) mypy $(shell $(PY_FIND_COMMAND)) --config-file $(MYPY_CONFIG)
 
 pylint_mod:
-	$(RUN_PY_DIRECT) pylint $(shell $(PY_MODIFIED_FIND_COMMAND))
+	@MODIFIED_FILES=$$($(PY_MODIFIED_FIND_COMMAND)); \
+	if [ -n "$$MODIFIED_FILES" ]; then \
+		$(RUN_PY) pylint $$MODIFIED_FILES; \
+	else \
+		echo "No modified Python files to check with pylint"; \
+	fi
 
 pylint:
-	$(RUN_PY_DIRECT) pylint $(shell $(PY_FIND_COMMAND))
+	$(RUN_PY) pylint $(shell $(PY_FIND_COMMAND))
 
 autopep8:
 	autopep8 --in-place --aggressive --aggressive $(shell $(PY_FIND_COMMAND))
@@ -115,12 +127,12 @@ release:
 
 clean:
 	rm -rf $(PY_VENV)
+	rm -rf $(PY_VENV_DEV)
 	rm -rf .ruff_cache
 	rm -rf .mypy_cache
 	rm -rf .coverage
 	rm -rf .pytest_cache
 	rm -rf dist
-	rm -rf .vscode
 
 
 .PHONY: init install install_dev format check_format mypy pylint autopep8 isort lint test upgrade release clean

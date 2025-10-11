@@ -1,0 +1,30 @@
+name: Python Application
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run linting and tests
+        id: python-app
+        uses: ./.github/actions/python-lint-test
+        with:
+          version: v2.0.0
+          python-version: '3.12'
+
+      - name: Display results
+        run: |
+          echo "${{ steps.python-app.outputs.result }}"
+          echo "Coverage: ${{ steps.python-app.outputs.coverage_percentage }}"

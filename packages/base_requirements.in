@@ -1,6 +1,11 @@
-redis
+# Redis
 ry_redis_bus
+
+# Utils
 ryutils
 sqlalchemy
+sqlalchemy_utils
+python-dotenv
 
+# Type stubs
 types-protobuf

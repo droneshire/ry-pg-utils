@@ -1,14 +1,21 @@
-# Development dependencies
+# Code formatting and linting
 black
 black[jupyter]
 coverage
 isort
-mypy
-mypy-protobuf
 pylint
 pylint-protobuf
-pytest
 ruff
-setuptools
 
+# Type checking
+mypy
+mypy-protobuf
 types-protobuf
+
+# Testing and coverage
+coverage
+pytest
+testcontainers[postgres]
+
+# Build tools
+setuptools

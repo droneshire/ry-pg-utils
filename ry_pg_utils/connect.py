@@ -2,20 +2,15 @@ import contextlib
 import threading
 import typing as T
 
+from . import config
 from ryutils import log
 from sqlalchemy import Column, String, create_engine, event
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import declarative_base, declared_attr, scoped_session, sessionmaker
+from sqlalchemy.orm import (declarative_base, declared_attr, scoped_session,
+                            sessionmaker)
 from sqlalchemy.orm.scoping import ScopedSession
 from sqlalchemy_utils import database_exists
-
-from config.constants import (
-    ADD_BACKEND_TO_ALL,
-    ADD_BACKEND_TO_TABLES,
-    BACKEND_ID,
-    RAISE_ON_USE_BEFORE_INIT,
-)
 
 _thread_local = threading.local()
 BACKEND_ID_VARIABLE = "backend_id"
@@ -24,7 +19,7 @@ ENGINE: T.Dict[str, Engine] = {}
 THREAD_SAFE_SESSION_FACTORY: T.Dict[str, ScopedSession] = {}
 
 # Base class with optional backend_id field
-if ADD_BACKEND_TO_ALL:
+if config.pg_config.add_backend_to_all:
     # Add any common fields here
     class CommonBaseModel:
         @declared_attr
@@ -36,10 +31,10 @@ else:
     Base = declarative_base(name="Base")
 
 
-def get_table_name(base_name: str, verbose: bool = False, backend_id: str = BACKEND_ID) -> str:
+def get_table_name(base_name: str, verbose: bool = False, backend_id: str = config.pg_config.backend_id) -> str:
     if verbose:
-        print(f"{base_name}_{backend_id}" if ADD_BACKEND_TO_TABLES else f"{base_name}")
-    return f"{base_name}_{backend_id}" if ADD_BACKEND_TO_TABLES else base_name
+        print(f"{base_name}_{backend_id}" if config.pg_config.add_backend_to_tables else f"{base_name}")
+    return f"{base_name}_{backend_id}" if config.pg_config.add_backend_to_tables else base_name
 
 
 def init_engine(uri: str, db: str, **kwargs: T.Any) -> Engine:
@@ -108,7 +103,7 @@ def is_session_factory_initialized() -> bool:
 
 @contextlib.contextmanager
 def ManagedSession(  # pylint: disable=invalid-name
-    db: T.Optional[str] = None, backend_id: T.Optional[str] = BACKEND_ID
+    db: T.Optional[str] = None, backend_id: T.Optional[str] = config.pg_config.backend_id
 ) -> T.Iterator[T.Optional[ScopedSession]]:
     """Get a session object whose lifecycle, commits and flush are managed for you.
     The session will automatically retry operations on connection errors.
@@ -128,7 +123,7 @@ def ManagedSession(  # pylint: disable=invalid-name
         db = next(iter(THREAD_SAFE_SESSION_FACTORY), None)
 
     if not db or db not in THREAD_SAFE_SESSION_FACTORY:
-        if RAISE_ON_USE_BEFORE_INIT:
+        if config.pg_config.raise_on_use_before_init:
             raise ValueError(f"Session factory for {db} not initialized.")
         log.print_fail(f"Session factory for {db} not initialized.")
         yield None

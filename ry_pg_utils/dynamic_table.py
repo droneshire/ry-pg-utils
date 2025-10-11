@@ -4,30 +4,14 @@ from datetime import datetime, timezone
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message
 from ryutils import log
-from sqlalchemy import (
-    Column,
-    DateTime,
-    Integer,
-    LargeBinary,
-    MetaData,
-    String,
-    Table,
-    func,
-    insert,
-    inspect,
-    types,
-)
+from sqlalchemy import (Column, DateTime, Integer, LargeBinary, MetaData,
+                        String, Table, func, insert, inspect, types)
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 
-from config.constants import
-from ry_pg_utils.connect import (
-    BACKEND_ID_VARIABLE,
-    ENGINE,
-    ManagedSession,
-    get_table_name,
-    init_engine,
-)
+from ry_pg_utils.config import pg_config
+from ry_pg_utils.connect import (BACKEND_ID_VARIABLE, ENGINE, ManagedSession,
+                                 get_table_name, init_engine)
 
 FIELD_TYPE_MAP: T.Dict[int, str] = {
     FieldDescriptor.TYPE_DOUBLE: "float",
@@ -50,7 +34,7 @@ FIELD_TYPE_MAP: T.Dict[int, str] = {
     FieldDescriptor.TYPE_SINT64: "int",
 }
 
-ADD_BACKEND_TO_ALL
+ADD_BACKEND_TO_ALL = pg_config.add_backend_to_all
 
 
 def _get_field_types(message_class: T.Type) -> T.Dict[str, str]:

@@ -1,0 +1,72 @@
+name: "Python Lint and Test"
+description: "Run python linting and tests with coverage"
+inputs:
+  version:
+    description: "App Version"
+    required: false
+    default: "v1.0.0"
+  python-version:
+    description: "Python version to use"
+    required: false
+    default: "3.12"
+outputs:
+  result:
+    description: "Return result of the action"
+    value: ${{ steps.set-result.outputs.result }}
+  coverage_percentage:
+    description: "Return code coverage percentage"
+    value: ${{ steps.coverage.outputs.percentage }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+
+    - name: Install uv
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip uv
+
+    - name: Compile and install dependencies
+      shell: bash
+      run: |
+        uv pip compile --strip-extras --output-file=requirements.txt packages/base_requirements.in packages/dev_requirements.in
+        uv pip install --system -r requirements.txt
+
+    - name: Check formatting with black
+      shell: bash
+      run: make check_format
+
+    - name: Type check with mypy
+      shell: bash
+      run: make mypy
+
+    - name: Lint with pylint
+      shell: bash
+      run: make pylint
+
+    - name: Run tests with pytest
+      shell: bash
+      run: make test
+
+    - name: Set success result
+      id: set-result
+      shell: bash
+      run: echo "result=🍻🍻🍻 Passed!" >> "$GITHUB_OUTPUT"
+
+    - name: Extract coverage percentage
+      id: coverage
+      shell: bash
+      run: |
+        if [[ -f .coverage ]]; then
+          COVERAGE_REPORT=$(coverage report)
+          echo "$COVERAGE_REPORT"
+          COVERAGE_PERCENT=$(echo "$COVERAGE_REPORT" | grep -oP 'TOTAL.*\d+\%' | grep -oP '\d+\%')
+          echo "percentage=$COVERAGE_PERCENT" >> "$GITHUB_OUTPUT"
+        else
+          echo "percentage=N/A" >> "$GITHUB_OUTPUT"
+        fi

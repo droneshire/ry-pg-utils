@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 import os
 import socket
+from dataclasses import dataclass
 
 import dotenv
 
@@ -29,7 +29,10 @@ pg_config = Config(
     postgres_password=os.getenv("POSTGRES_PASSWORD"),
     do_publish_db=False,
     use_local_db_only=True,
-    backend_id=f"{socket.gethostname()}_{socket.gethostbyname(socket.gethostname())}",
+    backend_id=(
+        os.getenv("POSTGRES_USER")
+        or f"{socket.gethostname()}_{socket.gethostbyname(socket.gethostname())}"
+    ),
     add_backend_to_all=True,
     add_backend_to_tables=True,
     raise_on_use_before_init=True,
