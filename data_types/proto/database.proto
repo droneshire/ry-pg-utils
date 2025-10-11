@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package database;
+
+import "google/protobuf/timestamp.proto";
+
+// Message for Postgres
+message PostgresPb {
+    string database = 1;
+    string user = 2;
+    string password = 3;
+    string host = 4;
+    int32 port = 5;
+    string backendId = 6;
+}
+
+message PostgresMessagePb {
+    google.protobuf.Timestamp utime = 1;
+    PostgresPb postgres = 2;
+}
+
+// Message for DatabaseSettings
+message DatabaseSettingsPb {
+    bool primaryDatabase = 1;
+    map<string, PostgresPb> postgres = 2;
+}
+
+message DatabaseConfigPb {
+    google.protobuf.Timestamp utime = 1;
+    DatabaseSettingsPb databaseSettings = 2;
+}
+
+message DatabaseNotificationPb {
+    google.protobuf.Timestamp utime = 1;
+    string table_name = 2;
+    string channel_name = 3;
+    string action = 4;
+    string payload = 5;
+}

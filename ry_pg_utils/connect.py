@@ -2,15 +2,15 @@ import contextlib
 import threading
 import typing as T
 
-from . import config
 from ryutils import log
 from sqlalchemy import Column, String, create_engine, event
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import (declarative_base, declared_attr, scoped_session,
-                            sessionmaker)
+from sqlalchemy.orm import declarative_base, declared_attr, scoped_session, sessionmaker
 from sqlalchemy.orm.scoping import ScopedSession
 from sqlalchemy_utils import database_exists
+
+from ry_pg_utils import config
 
 _thread_local = threading.local()
 BACKEND_ID_VARIABLE = "backend_id"
@@ -31,9 +31,15 @@ else:
     Base = declarative_base(name="Base")
 
 
-def get_table_name(base_name: str, verbose: bool = False, backend_id: str = config.pg_config.backend_id) -> str:
+def get_table_name(
+    base_name: str, verbose: bool = False, backend_id: str = config.pg_config.backend_id
+) -> str:
     if verbose:
-        print(f"{base_name}_{backend_id}" if config.pg_config.add_backend_to_tables else f"{base_name}")
+        print(
+            f"{base_name}_{backend_id}"
+            if config.pg_config.add_backend_to_tables
+            else f"{base_name}"
+        )
     return f"{base_name}_{backend_id}" if config.pg_config.add_backend_to_tables else base_name
 
 

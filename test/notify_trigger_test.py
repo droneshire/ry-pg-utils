@@ -4,10 +4,12 @@ from test.container_test_base import PostgresOnlyTestBase
 from typing import Any, List
 
 from database.connect import close_engine, init_engine
-from database.notify_trigger import (NotificationListener,
-                                     create_notify_trigger,
-                                     drop_notify_trigger,
-                                     subscribe_to_notifications)
+from database.notify_trigger import (
+    NotificationListener,
+    create_notify_trigger,
+    drop_notify_trigger,
+    subscribe_to_notifications,
+)
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 

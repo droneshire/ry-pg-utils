@@ -37,7 +37,7 @@ class PostgresInfo:
 
     def __str__(self) -> str:
         values = [
-            f"{key}={'*' * len(value) if key == 'password' else value}"
+            f"{key}={'*' * 8 if key == 'password' else value}"
             for key, value in self.__dict__.items()
         ]
         values_string = "\n\t".join(values)

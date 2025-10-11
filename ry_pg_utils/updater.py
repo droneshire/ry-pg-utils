@@ -4,15 +4,18 @@ import typing as T
 from dataclasses import dataclass
 
 from pb_types.config_pb2 import (  # pylint: disable=no-name-in-module
-    ConfigMessagePb, DatabaseSettingsPb, PostgresMessagePb, PostgresPb)
+    ConfigMessagePb,
+    DatabaseSettingsPb,
+    PostgresMessagePb,
+    PostgresPb,
+)
 from ry_redis_bus import channels
 from ry_redis_bus.helpers import RedisInfo, message_handler
 from ry_redis_bus.redis_client_base import RedisClientBase
 from ryutils import log
 from ryutils.verbose import Verbose
 
-from ry_pg_utils.connect import (close_engine, init_database,
-                                 is_database_initialized)
+from ry_pg_utils.connect import close_engine, init_database, is_database_initialized
 from ry_pg_utils.postgres_info import PostgresInfo
 
 DB_RETRY_TIME = 5.0
