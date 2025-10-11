@@ -10,11 +10,17 @@ PY_VENV_DEV=$(PWD)/venv-dev
 PY_VENV_REL_PATH=$(subst $(PWD)/,,$(PY_VENV))
 PY_VENV_DEV_REL_PATH=$(subst $(PWD)/,,$(PY_VENV_DEV))
 
+SRC_PATH=$(PWD)/src
+TEST_PATH=$(PWD)/test
+BUILD_PATH=$(PWD)/build
+TYPES_PATH=$(PWD)/data_types
+
 PB_PY_PATH=$(BUILD_PATH)/pb_types
 PB_DESC_PATH=$(BUILD_PATH)/pb_desc
+PB_SRC_PATH=$(SRC_PATH)/ry_pg_utils/pb_types
 
 # Python execution
-PY_PATH=$(PWD):$(BUILD_PATH):$(DATABASE_PATH)
+PY_PATH=$(SRC_PATH):$(TEST_PATH):$(BUILD_PATH)
 
 RUN_PY = PYTHONPATH=$(PY_PATH) $(PYTHON) -m
 RUN_PY_DIRECT = PYTHONPATH=$(PY_PATH) $(PYTHON)
@@ -24,6 +30,44 @@ PY_FIND_COMMAND = find . -name '*.py' | grep -vE "($(PY_VENV_REL_PATH)|$(PY_VENV
 PY_MODIFIED_FIND_COMMAND = git diff --name-only --diff-filter=AM HEAD | grep '\.py$$' | grep -vE "($(PY_VENV_REL_PATH)|$(PY_VENV_DEV_REL_PATH))"
 BLACK_CMD = $(RUN_PY) black --line-length 100 $(shell $(PY_FIND_COMMAND))
 MYPY_CONFIG=$(PY_PATH)/mypy_config.ini
+
+PROTO_PATH=$(TYPES_PATH)/proto
+PROTO_FIND_COMMAND=`find $(PROTO_PATH) -type f -name '*.proto'`
+
+
+proto_build:
+	@echo "\033[34mBuilding proto files\033[0m"
+	mkdir -p $(PB_PY_PATH)
+	touch $(PB_PY_PATH)/__init__.py
+	touch $(PB_PY_PATH)/py.typed
+	protoc \
+		-I=$(PROTO_PATH) \
+		-I/usr/include \
+		--python_out=$(PB_PY_PATH) \
+		--mypy_out=$(PB_PY_PATH) \
+		$(PROTO_FIND_COMMAND)
+	# Fix imports in generated files
+	find $(PB_PY_PATH) -name "*_pb2.py" \
+		-exec sed -i \
+		's/import \([a-zA-Z0-9_]*\)_pb2 as \1__pb2/from pb_types import \1_pb2 as \1__pb2/g' \
+		{} \;
+	@echo "\033[32mProto files built successfully\033[0m"
+
+proto_desc:
+	@echo "\033[34mDescribing proto files\033[0m"
+	mkdir -p $(PB_DESC_PATH)
+	protoc -I=$(PROTO_PATH) --descriptor_set_out=$(PB_DESC_PATH)/types.desc --include_imports $(PROTO_FIND_COMMAND)
+	@echo "\033[32mProto files described successfully\033[0m"
+
+proto_clean:
+	@echo "\033[34mCleaning proto files\033[0m"
+	rm -rf $(PB_PY_PATH)
+
+types_build: proto_build
+	@echo "\033[32mTypes built successfully\033[0m"
+
+types_clean: proto_clean
+	@echo "\033[34mCleaning types\033[0m"
 
 init:
 	@if [ -d "$(PY_VENV_REL_PATH)" ]; then \
@@ -53,6 +97,16 @@ install_dev:
 	$(PIP) install uv
 	$(PIP_COMPILE) --strip-extras --output-file=$(PACKAGES_PATH)/requirements-dev.txt $(PACKAGES_PATH)/base_requirements.in $(PACKAGES_PATH)/dev_requirements.in
 	$(MAYBE_UV) pip install -r $(PACKAGES_PATH)/requirements-dev.txt
+
+copy_proto:
+	@if [ -d "$(PB_PY_PATH)" ]; then \
+		echo "\033[0;32mCopying generated protobuf files from build to src...\033[0m"; \
+		mkdir -p $(PB_SRC_PATH); \
+		cp -r $(PB_PY_PATH)/* $(PB_SRC_PATH)/; \
+		echo "\033[0;32mProtobuf files copied to $(PB_SRC_PATH)\033[0m"; \
+	else \
+		echo "\033[33mNo protobuf files found in $(PB_PY_PATH)\033[0m"; \
+	fi
 
 format: isort
 	$(RUN_PY) ruff check --fix $(shell $(PY_FIND_COMMAND))
@@ -104,7 +158,7 @@ upgrade: install
 	$(MAYBE_UV) pip install --upgrade $$(pip freeze | awk '{split($$0, a, "=="); print a[1]}')
 	$(MAYBE_UV) pip freeze > $(PACKAGES_PATH)/requirements.txt
 
-release:
+release: copy_proto
 	@if [ "$(shell git rev-parse --abbrev-ref HEAD)" != "main" ]; then \
 		echo "\033[0;31mERROR: You must be on the main branch to create a release.\033[0m"; \
 		exit 1; \
@@ -132,6 +186,7 @@ release:
 clean:
 	rm -rf $(PY_VENV)
 	rm -rf $(PY_VENV_DEV)
+	rm -rf $(BUILD_PATH)
 	rm -rf .ruff_cache
 	rm -rf .mypy_cache
 	rm -rf .coverage
@@ -139,4 +194,5 @@ clean:
 	rm -rf dist
 
 
-.PHONY: init install install_dev format check_format mypy pylint autopep8 isort lint test upgrade release clean
+.PHONY: init install install_dev copy_proto format check_format \
+        mypy pylint autopep8 isort lint test upgrade release clean

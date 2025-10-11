@@ -21,7 +21,8 @@ setup(
     long_description_content_type="text/markdown",
     author="Ross Yeager",
     author_email="ryeager12@email.com",
-    packages=find_packages(include=["ry_pg_utils", "ry_pg_utils.*"]),
+    package_dir={"": "src"},
+    packages=find_packages(where="src", include=["ry_pg_utils", "ry_pg_utils.*"]),
     package_data={"ry_pg_utils": ["py.typed"]},
     install_requires=required,
     classifiers=[

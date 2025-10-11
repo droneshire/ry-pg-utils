@@ -2,3 +2,23 @@
 venv*
 requirements*
 .vscode*
+
+# Build directories
+build/
+dist/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing and linting
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated protobuf files (in build - always ignored)
+# Note: src/ry_pg_utils/pb_types/ is not ignored - these are copied and committed
