@@ -39,14 +39,14 @@ pg_config = Config(
     postgres_db=os.getenv("POSTGRES_DB"),
     postgres_user=os.getenv("POSTGRES_USER"),
     postgres_password=os.getenv("POSTGRES_PASSWORD"),
-    do_publish_db=False,
+    do_publish_db=True,
     use_local_db_only=True,
     backend_id=(
         os.getenv("POSTGRES_USER")
         or f"{socket.gethostname()}_{socket.gethostbyname(socket.gethostname())}"
     ),
-    add_backend_to_all=True,
-    add_backend_to_tables=True,
+    add_backend_to_all=False,
+    add_backend_to_tables=False,
     raise_on_use_before_init=True,
     ssh_host=os.getenv("SSH_HOST"),
     ssh_port=_ssh_port,
