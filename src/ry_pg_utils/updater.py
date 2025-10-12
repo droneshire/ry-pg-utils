@@ -11,7 +11,6 @@ from ryutils.verbose import Verbose
 from ry_pg_utils.connect import close_engine, init_database, is_database_initialized
 from ry_pg_utils.ipc import channels
 from ry_pg_utils.pb_types.database_pb2 import (  # pylint: disable=no-name-in-module
-    DatabaseConfigPb,
     PostgresMessagePb,
     PostgresPb,
 )
@@ -21,28 +20,15 @@ DB_RETRY_TIME = 5.0
 
 
 def get_database_settings(
-    message_pb: DatabaseConfigPb, backend_id: str, verbose: bool = False
+    raw_db_config_pb: PostgresMessagePb | None, verbose: bool = False
 ) -> T.Optional[PostgresInfo]:
-    # Access the nested databaseSettings field
-    if not message_pb.HasField("databaseSettings"):
-        return None
-
-    database_settings = message_pb.databaseSettings
-
-    # Check if this is the primary database
-    if not database_settings.primaryDatabase:
-        return None
-
-    # Get the postgres config for this backend
-    raw_db_config_pb = database_settings.postgres.get(backend_id, None)
-
     if raw_db_config_pb is None:
         return None
 
-    db_config_pb: PostgresPb = raw_db_config_pb
+    db_config_pb: PostgresPb = raw_db_config_pb.postgres
 
     if verbose:
-        log.print_normal(f"Received database settings {backend_id}:\n{db_config_pb}")
+        log.print_normal(f"Received database settings:\n{db_config_pb}")
 
     database_settings_msg = PostgresInfo(
         db_name=db_config_pb.database,
@@ -88,12 +74,11 @@ class DbUpdater(RedisClientBase):
         self.last_db_init_retry_time = 0.0
         self.use_local_db_only = args.use_local_db_only if args else True
         self.database_settings_msg: T.Optional[PostgresInfo] = None
-        self.backend_id = backend_id
         self.logging_error_db_callback = logging_error_db_callback
 
     @message_handler
-    def handle_database_config_message(self, message_pb: DatabaseConfigPb) -> None:
-        database_settings = get_database_settings(message_pb, backend_id=self.backend_id)
+    def handle_database_config_message(self, message_pb: PostgresMessagePb) -> None:
+        database_settings = get_database_settings(message_pb)
 
         if database_settings is not None:
             self.database_settings_msg = database_settings

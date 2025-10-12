@@ -4,9 +4,7 @@ isort:skip_file
 """
 
 import builtins
-import collections.abc
 import google.protobuf.descriptor
-import google.protobuf.internal.containers
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import typing
@@ -65,66 +63,6 @@ class PostgresMessagePb(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["postgres", b"postgres", "utime", b"utime"]) -> None: ...
 
 global___PostgresMessagePb = PostgresMessagePb
-
-@typing.final
-class DatabaseSettingsPb(google.protobuf.message.Message):
-    """Message for DatabaseSettings"""
-
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    @typing.final
-    class PostgresEntry(google.protobuf.message.Message):
-        DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-        KEY_FIELD_NUMBER: builtins.int
-        VALUE_FIELD_NUMBER: builtins.int
-        key: builtins.str
-        @property
-        def value(self) -> global___PostgresPb: ...
-        def __init__(
-            self,
-            *,
-            key: builtins.str = ...,
-            value: global___PostgresPb | None = ...,
-        ) -> None: ...
-        def HasField(self, field_name: typing.Literal["value", b"value"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
-
-    PRIMARYDATABASE_FIELD_NUMBER: builtins.int
-    POSTGRES_FIELD_NUMBER: builtins.int
-    primaryDatabase: builtins.bool
-    @property
-    def postgres(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___PostgresPb]: ...
-    def __init__(
-        self,
-        *,
-        primaryDatabase: builtins.bool = ...,
-        postgres: collections.abc.Mapping[builtins.str, global___PostgresPb] | None = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["postgres", b"postgres", "primaryDatabase", b"primaryDatabase"]) -> None: ...
-
-global___DatabaseSettingsPb = DatabaseSettingsPb
-
-@typing.final
-class DatabaseConfigPb(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    UTIME_FIELD_NUMBER: builtins.int
-    DATABASESETTINGS_FIELD_NUMBER: builtins.int
-    @property
-    def utime(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
-    @property
-    def databaseSettings(self) -> global___DatabaseSettingsPb: ...
-    def __init__(
-        self,
-        *,
-        utime: google.protobuf.timestamp_pb2.Timestamp | None = ...,
-        databaseSettings: global___DatabaseSettingsPb | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing.Literal["databaseSettings", b"databaseSettings", "utime", b"utime"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["databaseSettings", b"databaseSettings", "utime", b"utime"]) -> None: ...
-
-global___DatabaseConfigPb = DatabaseConfigPb
 
 @typing.final
 class DatabaseNotificationPb(google.protobuf.message.Message):

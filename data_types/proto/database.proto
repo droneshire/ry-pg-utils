@@ -19,17 +19,6 @@ message PostgresMessagePb {
     PostgresPb postgres = 2;
 }
 
-// Message for DatabaseSettings
-message DatabaseSettingsPb {
-    bool primaryDatabase = 1;
-    map<string, PostgresPb> postgres = 2;
-}
-
-message DatabaseConfigPb {
-    google.protobuf.Timestamp utime = 1;
-    DatabaseSettingsPb databaseSettings = 2;
-}
-
 message DatabaseNotificationPb {
     google.protobuf.Timestamp utime = 1;
     string table_name = 2;
