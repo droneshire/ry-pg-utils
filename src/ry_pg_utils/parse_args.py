@@ -3,7 +3,7 @@ import argparse
 from . import config
 
 
-def add_postrgres_db_args(parser: argparse.ArgumentParser) -> None:
+def add_postgres_db_args(parser: argparse.ArgumentParser) -> None:
     postgres_parser = parser.add_argument_group("postgres-options")
     postgres_parser.add_argument("--postgres-host", default=config.pg_config.postgres_host)
     postgres_parser.add_argument(

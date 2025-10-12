@@ -245,10 +245,10 @@ Add PostgreSQL arguments to your argument parser:
 
 ```python
 import argparse
-from ry_pg_utils.parse_args import add_postrgres_db_args
+from ry_pg_utils.parse_args import add_postgres_db_args
 
 parser = argparse.ArgumentParser()
-add_postrgres_db_args(parser)
+add_postgres_db_args(parser)
 
 args = parser.parse_args()
 # Access: args.postgres_host, args.postgres_port, etc.
@@ -506,14 +506,14 @@ make lint_full
 
 ```python
 import argparse
-from ry_pg_utils.parse_args import add_postrgres_db_args
+from ry_pg_utils.parse_args import add_postgres_db_args
 from ry_pg_utils.connect import init_database, ManagedSession
 from ry_pg_utils.dynamic_table import DynamicTableDb
 from sqlalchemy import text
 
 def parse_args():
     parser = argparse.ArgumentParser(description="My Database App")
-    add_postrgres_db_args(parser)
+    add_postgres_db_args(parser)
     return parser.parse_args()
 
 def main():
