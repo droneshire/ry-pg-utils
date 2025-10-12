@@ -45,14 +45,12 @@ def get_database_settings(
 class DbUpdater(RedisClientBase):
     do_publish_db: bool
     postgres_info: PostgresInfo
-    backend_id: str
     logging_error_db_callback: T.Callable[[str, str], None] | None
 
     def __init__(
         self,
         redis_info: RedisInfo,
         args: argparse.Namespace,
-        backend_id: str,
         verbose: Verbose,
         logging_error_db_callback: T.Callable[[str, str], None] | None = None,
     ):

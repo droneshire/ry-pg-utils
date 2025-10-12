@@ -5,11 +5,10 @@ import threading
 import typing as T
 
 from ryutils import log
-from sqlalchemy import Column, String, create_engine, event
+from sqlalchemy import String, create_engine, event
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import declarative_base, declared_attr, scoped_session, sessionmaker
-from sqlalchemy.orm.decl_api import DeclarativeMeta
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 from sqlalchemy.orm.scoping import ScopedSession
 from sqlalchemy_utils import database_exists
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -22,20 +21,19 @@ BACKEND_ID_VARIABLE = "backend_id"
 ENGINE: T.Dict[str, Engine] = {}
 THREAD_SAFE_SESSION_FACTORY: T.Dict[str, ScopedSession] = {}
 
-# Base class with optional backend_id field
+
+# Modern SQLAlchemy 2.0 declarative base
 if config.pg_config.add_backend_to_all:
-    # Add any common fields here
-    class CommonBaseModel:
-        @declared_attr
-        def backend_id(cls: T.Any) -> Column:  # pylint: disable=no-self-argument
-            return Column(String(256), nullable=False)
 
-    Base = declarative_base(name="Base", cls=CommonBaseModel)
+    class Base(DeclarativeBase):
+        """Base class with automatic backend_id field."""
+
+        backend_id: Mapped[str] = mapped_column(String(256), nullable=False)
+
 else:
-    Base = declarative_base(name="Base")
 
-# Add type annotation for Base
-Base: DeclarativeMeta  # type: ignore
+    class Base(DeclarativeBase):  # type: ignore[no-redef]
+        """Base class for all SQLAlchemy models."""
 
 
 def get_table_name(
