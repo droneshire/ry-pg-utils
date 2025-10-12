@@ -98,7 +98,7 @@ install_dev:
 	$(PIP_COMPILE) --strip-extras --output-file=$(PACKAGES_PATH)/requirements-dev.txt $(PACKAGES_PATH)/base_requirements.in $(PACKAGES_PATH)/dev_requirements.in
 	$(MAYBE_UV) pip install -r $(PACKAGES_PATH)/requirements-dev.txt
 
-copy_proto:
+copy_proto: types_build
 	@if [ -d "$(PB_PY_PATH)" ]; then \
 		echo "\033[0;32mCopying generated protobuf files from build to src...\033[0m"; \
 		mkdir -p $(PB_SRC_PATH); \
@@ -161,6 +161,10 @@ upgrade: install
 release: copy_proto
 	@if [ "$(shell git rev-parse --abbrev-ref HEAD)" != "main" ]; then \
 		echo "\033[0;31mERROR: You must be on the main branch to create a release.\033[0m"; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain | grep -v "VERSION")" ]; then \
+		echo "\033[0;31mERROR: Working directory is not clean. Please commit or stash changes before release.\033[0m"; \
 		exit 1; \
 	fi; \
 	if [ ! -f VERSION ]; then \
