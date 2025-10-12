@@ -3,13 +3,13 @@
 import os
 import tempfile
 import unittest
-from test.postgres_test_base import PostgresOnlyTestBase
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import psycopg2
 
-from tools.db_query import DbQuery, DbQueryPsycopg2, DbQuerySpark
+from ry_pg_utils.tools.db_query import DbQuery, DbQueryPsycopg2, DbQuerySpark
+from test.postgres_test_base import PostgresOnlyTestBase
 
 
 class TestDbQueryPsycopg2(PostgresOnlyTestBase):
@@ -181,7 +181,7 @@ class TestDbQueryInitialization(unittest.TestCase):
         self.assertTrue(db_query.is_local)
         self.assertEqual(db_query.db_name, "temp_custom_db")
 
-    @patch("tools.db_query.config")
+    @patch("ry_pg_utils.tools.db_query.config")
     def test_init_with_config_fallback(self, mock_config: Mock) -> None:
         """Test initialization falls back to config when parameters not provided."""
         mock_config.pg_config.postgres_host = "config_host"
@@ -215,8 +215,8 @@ class TestDbQueryInitialization(unittest.TestCase):
 class TestDbQuerySSH(unittest.TestCase):
     """Test cases for SSH-related functionality."""
 
-    @patch("tools.db_query.paramiko.SSHClient")
-    @patch("tools.db_query.modern_ssh_tunnel.SSHTunnelForwarder")
+    @patch("ry_pg_utils.tools.db_query.paramiko.SSHClient")
+    @patch("ry_pg_utils.tools.db_query.modern_ssh_tunnel.SSHTunnelForwarder")
     def test_establish_ssh_tunnel(self, mock_tunnel: Mock, _mock_ssh_client: Mock) -> None:
         """Test establishing SSH tunnel."""
         db_query = DbQueryPsycopg2(
@@ -267,7 +267,7 @@ class TestDbQuerySSH(unittest.TestCase):
 class TestDbQuerySpark(unittest.TestCase):
     """Test cases for DbQuerySpark class."""
 
-    @patch("tools.db_query.SparkSession")
+    @patch("ry_pg_utils.tools.db_query.SparkSession")
     def test_spark_initialization(self, mock_spark: Mock) -> None:
         """Test Spark DbQuery initialization."""
         mock_spark_builder = MagicMock()
@@ -290,7 +290,7 @@ class TestDbQuerySpark(unittest.TestCase):
         self.assertEqual(db_query.connection_properties["driver"], "org.postgresql.Driver")
         self.assertIn("jdbc:postgresql://", db_query.jdbc_url)
 
-    @patch("tools.db_query.SparkSession")
+    @patch("ry_pg_utils.tools.db_query.SparkSession")
     def test_spark_connect_no_tunnel(self, mock_spark: Mock) -> None:
         """Test Spark connection without SSH tunnel."""
         mock_spark_builder = MagicMock()
@@ -315,10 +315,10 @@ class TestDbQuerySpark(unittest.TestCase):
 class TestDbQueryCopyLocal(unittest.TestCase):
     """Test cases for copying database locally."""
 
-    @patch("tools.db_query.paramiko.SSHClient")
-    @patch("tools.db_query.os.path.exists")
-    @patch("tools.db_query.time.time")
-    @patch("tools.db_query.os.path.getmtime")
+    @patch("ry_pg_utils.tools.db_query.paramiko.SSHClient")
+    @patch("ry_pg_utils.tools.db_query.os.path.exists")
+    @patch("ry_pg_utils.tools.db_query.time.time")
+    @patch("ry_pg_utils.tools.db_query.os.path.getmtime")
     def test_maybe_copy_database_skip_recent(
         self,
         mock_getmtime: Mock,
@@ -355,7 +355,7 @@ class TestDbQueryCopyLocal(unittest.TestCase):
             if os.path.exists(local_path):
                 os.remove(local_path)
 
-    @patch("tools.db_query.subprocess.run")
+    @patch("ry_pg_utils.tools.db_query.subprocess.run")
     def test_import_local_database_sets_pgpassword(self, mock_run: Mock) -> None:
         """Test that import_local_database sets PGPASSWORD environment variable."""
         db_query = DbQueryPsycopg2(
@@ -387,7 +387,7 @@ class TestDbQueryCopyLocal(unittest.TestCase):
 class TestDbQueryRunCommand(unittest.TestCase):
     """Test cases for running remote commands."""
 
-    @patch("tools.db_query.paramiko.SSHClient")
+    @patch("ry_pg_utils.tools.db_query.paramiko.SSHClient")
     def test_run_command(self, mock_ssh_client: Mock) -> None:
         """Test running a command on remote server."""
         mock_client_instance = MagicMock()
