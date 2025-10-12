@@ -3,13 +3,13 @@
 import os
 import tempfile
 import unittest
+from test.postgres_test_base import PostgresOnlyTestBase
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import psycopg2
 
 from ry_pg_utils.tools.db_query import DbQuery, DbQueryPsycopg2, DbQuerySpark
-from test.postgres_test_base import PostgresOnlyTestBase
 
 
 class TestDbQueryPsycopg2(PostgresOnlyTestBase):

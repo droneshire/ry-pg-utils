@@ -11,7 +11,7 @@ from ryutils.verbose import Verbose
 from ry_pg_utils.connect import close_engine, init_database, is_database_initialized
 from ry_pg_utils.ipc import channels
 from ry_pg_utils.pb_types.database_pb2 import (  # pylint: disable=no-name-in-module
-    DatabaseSettingsPb,
+    DatabaseConfigPb,
     PostgresMessagePb,
     PostgresPb,
 )
@@ -21,14 +21,22 @@ DB_RETRY_TIME = 5.0
 
 
 def get_database_settings(
-    message_pb: DatabaseSettingsPb, backend_id: str, verbose: bool = False
+    message_pb: DatabaseConfigPb, backend_id: str, verbose: bool = False
 ) -> T.Optional[PostgresInfo]:
-    raw_db_config_pb = message_pb.postgres.get(backend_id, None)
-
-    if raw_db_config_pb is None:
+    # Access the nested databaseSettings field
+    if not message_pb.HasField("databaseSettings"):
         return None
 
-    if not message_pb.primaryDatabase:
+    database_settings = message_pb.databaseSettings
+
+    # Check if this is the primary database
+    if not database_settings.primaryDatabase:
+        return None
+
+    # Get the postgres config for this backend
+    raw_db_config_pb = database_settings.postgres.get(backend_id, None)
+
+    if raw_db_config_pb is None:
         return None
 
     db_config_pb: PostgresPb = raw_db_config_pb
@@ -84,7 +92,7 @@ class DbUpdater(RedisClientBase):
         self.logging_error_db_callback = logging_error_db_callback
 
     @message_handler
-    def handle_database_config_message(self, message_pb: DatabaseSettingsPb) -> None:
+    def handle_database_config_message(self, message_pb: DatabaseConfigPb) -> None:
         database_settings = get_database_settings(message_pb, backend_id=self.backend_id)
 
         if database_settings is not None:
