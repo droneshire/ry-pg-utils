@@ -1,6 +1,6 @@
 import argparse
 
-from .config import get_config
+from ry_pg_utils.config import get_config
 
 
 def add_postgres_db_args(parser: argparse.ArgumentParser) -> None:
