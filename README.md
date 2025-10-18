@@ -366,8 +366,9 @@ from ryutils.verbose import Verbose
 updater = DbUpdater(
     redis_info=redis_info,
     args=args,  # argparse.Namespace with postgres config
-    backend_id="my_backend",
-    verbose=Verbose(True)
+    verbose=Verbose(True),
+    logging_error_db_callback=None,  # Optional error logging callback
+    models_module="myapp.models"  # Optional: auto-import SQLAlchemy models
 )
 
 # Initialize and start listening for configuration updates
@@ -376,6 +377,15 @@ updater.init()
 # Run the update loop
 updater.run()  # Blocks, continuously checking for updates
 ```
+
+**Key Features:**
+
+- Automatic database initialization with connection pooling
+- Dynamic database switching via Redis messages
+- Optional auto-importing of SQLAlchemy models from specified module
+- Publish database configuration changes to Redis channels
+- Error logging callback support
+- Automatic retry logic for database connection failures
 
 ### `notify_trigger.py` - PostgreSQL LISTEN/NOTIFY Support
 
