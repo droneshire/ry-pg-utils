@@ -239,16 +239,12 @@ class TestConnectUtilityFunctions(unittest.TestCase):
 
     def test_get_table_name_without_backend(self) -> None:
         """Test get_table_name without backend_id suffix."""
-        # TODO: Update this test to use environment variables or mocking
-        # since config is now lazy-loaded and immutable
         table_name = get_table_name("users")
         # This will use the current config value
         self.assertIsInstance(table_name, str)
 
     def test_get_table_name_with_backend(self) -> None:
         """Test get_table_name with backend_id suffix."""
-        # TODO: Update this test to use environment variables or mocking
-        # since config is now lazy-loaded and immutable
         table_name = get_table_name("users", backend_id="test_backend")
         # This will use the provided backend_id regardless of config
         self.assertEqual(table_name, "users_test_backend")
@@ -385,19 +381,13 @@ class TestManagedSession(PostgresOnlyTestBase):
 
     def test_managed_session_without_init_raises_error(self) -> None:
         """Test ManagedSession raises error when database not initialized."""
-        # TODO: Update this test to use environment variables or mocking
-        # since config is now lazy-loaded and immutable
-        # For now, test the current behavior
         with self.assertRaises(ValueError):
             with ManagedSession(db="nonexistent_db"):
                 pass
 
     def test_managed_session_without_init_returns_none(self) -> None:
         """Test ManagedSession returns None when raise_on_use_before_init is False."""
-        # TODO: Update this test to use environment variables or mocking
-        # since config is now lazy-loaded and immutable
-        # For now, test the current behavior - this will raise an error
-        # because the default config has raise_on_use_before_init=True
+        # This will raise an error because the default config has raise_on_use_before_init=True
         with self.assertRaises(ValueError):
             with ManagedSession(db="nonexistent_db_2"):
                 pass
