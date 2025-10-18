@@ -46,6 +46,7 @@ class DbUpdater(RedisClientBase):
     do_publish_db: bool
     postgres_info: PostgresInfo
     logging_error_db_callback: T.Callable[[str, str], None] | None
+    models_module: T.Optional[str]
 
     def __init__(
         self,
@@ -53,6 +54,7 @@ class DbUpdater(RedisClientBase):
         args: argparse.Namespace,
         verbose: Verbose,
         logging_error_db_callback: T.Callable[[str, str], None] | None = None,
+        models_module: T.Optional[str] = None,
     ):
         super().__init__(
             redis_info=redis_info,
@@ -73,6 +75,7 @@ class DbUpdater(RedisClientBase):
         self.use_local_db_only = args.use_local_db_only if args else True
         self.database_settings_msg: T.Optional[PostgresInfo] = None
         self.logging_error_db_callback = logging_error_db_callback
+        self.models_module = models_module
 
     @message_handler
     def handle_database_config_message(self, message_pb: PostgresMessagePb) -> None:
@@ -91,6 +94,7 @@ class DbUpdater(RedisClientBase):
                 db_name=self.postgres_info.db_name,
                 db_user=self.postgres_info.user,
                 db_password=self.postgres_info.password,
+                models_module=self.models_module,
             )
         else:
             self.postgres_info = PostgresInfo.null()
@@ -144,6 +148,7 @@ class DbUpdater(RedisClientBase):
             db_name=new_postgres_info.db_name,
             db_user=new_postgres_info.user,
             db_password=new_postgres_info.password,
+            models_module=self.models_module,
         )
 
         self.postgres_info = new_postgres_info
