@@ -21,7 +21,7 @@ A Python utility library for PostgreSQL database operations with dynamic table c
 - **Multi-Backend Support**: Track data across multiple backend instances with automatic ID tagging
 - **Session Management**: Context managers for safe database session handling
 - **Notification System**: Built-in PostgreSQL LISTEN/NOTIFY support with triggers and callbacks
-- **Configuration System**: Flexible configuration via environment variables and runtime settings
+- **Advanced Configuration**: Lazy-loaded, thread-safe config with runtime overrides and import order independence
 - **Redis Integration**: Optional Redis-based database configuration updates
 - **Type Safety**: Full type hints and mypy support
 
@@ -45,7 +45,15 @@ pip install ry-pg-utils
 
 ## Configuration
 
-`ry-pg-utils` uses a flexible configuration system that can be customized in multiple ways:
+`ry-pg-utils` uses a powerful, thread-safe configuration system that supports lazy loading, runtime overrides, and import order independence.
+
+### Key Features
+
+- **Lazy Loading**: Configuration loads only when first accessed
+- **Thread-Safe**: All configuration operations use proper locking
+- **Import Order Independent**: Runtime overrides work regardless of when modules are imported
+- **Environment Variables**: Load from `.env` files automatically
+- **Runtime Overrides**: Programmatically set config values at any time
 
 ### 1. Environment Variables
 
@@ -57,37 +65,129 @@ POSTGRES_PORT=5432
 POSTGRES_DB=mydb
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=secret
+SSH_HOST=remote.server.com
+SSH_PORT=22
+SSH_USER=deploy
+SSH_KEY_PATH=/path/to/key
 ```
 
-### 2. Configuration Object
+### 2. Runtime Configuration
 
 ```python
-from ry_pg_utils.config import pg_config
+from ry_pg_utils.config import get_config, set_config
 
-# Access configuration
-print(pg_config.postgres_host)
-print(pg_config.postgres_port)
+# Get current configuration (lazy-loaded from environment)
+config = get_config()
+print(config.postgres_host)
+print(config.postgres_port)
 
-# Modify at runtime
-pg_config.add_backend_to_all = False
-pg_config.backend_id = "custom_backend_id"
+# Set configuration at runtime (thread-safe, import order independent)
+set_config(
+    postgres_host="new-host",
+    postgres_port=5433,
+    postgres_db="production_db",
+    add_backend_to_tables=True
+)
+
+# All modules now get the updated config, regardless of import order
+config = get_config()
+print(config.postgres_host)  # "new-host"
+```
+
+### 3. Argument Parsing Integration
+
+Perfect for command-line applications that need to override config at startup:
+
+```python
+import argparse
+from ry_pg_utils.parse_args import add_postgres_db_args
+from ry_pg_utils.config import set_config
+
+# Parse arguments
+parser = argparse.ArgumentParser()
+add_postgres_db_args(parser)
+args = parser.parse_args()
+
+# Apply runtime overrides from command-line arguments
+set_config(
+    postgres_host=args.postgres_host,
+    postgres_port=args.postgres_port,
+    postgres_db=args.postgres_db,
+    postgres_user=args.postgres_user,
+    postgres_password=args.postgres_password,
+)
+
+# Now all modules use the command-line provided config
+# Import order doesn't matter!
+```
+
+### 4. Testing Support
+
+```python
+from ry_pg_utils.config import reset_config, set_config, has_config_overrides
+
+# Reset config to clean state (useful for test isolation)
+reset_config()
+
+# Set test-specific configuration
+set_config(postgres_host="test-db", postgres_port=5432)
+
+# Check if overrides have been applied
+if has_config_overrides():
+    print("Custom config is active")
 ```
 
 ### Configuration Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `postgres_host` | str | From env | PostgreSQL server hostname |
-| `postgres_port` | int | From env | PostgreSQL server port |
-| `postgres_db` | str | From env | Database name |
-| `postgres_user` | str | From env | Database username |
-| `postgres_password` | str | From env | Database password |
+| `postgres_host` | str\|None | From env | PostgreSQL server hostname |
+| `postgres_port` | int\|None | From env | PostgreSQL server port |
+| `postgres_db` | str\|None | From env | Database name |
+| `postgres_user` | str\|None | From env | Database username |
+| `postgres_password` | str\|None | From env | Database password |
+| `ssh_host` | str\|None | From env | SSH tunnel hostname |
+| `ssh_port` | int\|None | From env | SSH tunnel port |
+| `ssh_user` | str\|None | From env | SSH tunnel username |
+| `ssh_key_path` | str\|None | From env | Path to SSH private key |
 | `backend_id` | str | POSTGRES_USER or hostname_ip | Unique identifier for this backend instance |
-| `add_backend_to_all` | bool | True | Add backend_id column to all tables |
-| `add_backend_to_tables` | bool | True | Append backend_id to table names |
+| `add_backend_to_all` | bool | False | Add backend_id column to all tables |
+| `add_backend_to_tables` | bool | False | Append backend_id to table names |
 | `raise_on_use_before_init` | bool | True | Raise exception if DB used before initialization |
-| `do_publish_db` | bool | False | Enable database publishing features (for Redis integration) |
+| `do_publish_db` | bool | True | Enable database publishing features (for Redis integration) |
 | `use_local_db_only` | bool | True | Use only local database connections |
+
+### Configuration API
+
+```python
+from ry_pg_utils.config import (
+    get_config,           # Get current configuration (lazy-loaded)
+    set_config,           # Set configuration values at runtime
+    reset_config,         # Reset to defaults (reload from environment)
+    has_config_overrides, # Check if runtime overrides are active
+    pg_config,            # Backward compatibility function
+)
+
+# Get configuration
+config = get_config()
+
+# Set single or multiple values
+set_config(postgres_host="localhost")
+set_config(
+    postgres_host="localhost",
+    postgres_port=5432,
+    add_backend_to_tables=True
+)
+
+# Check override status
+if has_config_overrides():
+    print("Using custom configuration")
+
+# Reset to environment defaults
+reset_config()
+```
+
+**Why this matters:** The lazy-loading, thread-safe design eliminates race conditions when setting config at runtime. You can safely call `set_config()` in your main function, and ALL modules—even those imported before the call—will see the updated values. No more import order issues!
 
 ## Quick Start
 
@@ -612,7 +712,21 @@ Ross Yeager - `ryeager12@email.com`
 
 ## Changelog
 
-### Version 1.0.2 (Current)
+### Version 1.1.0 (Current)
+
+**Configuration System Improvements:**
+- **Thread-Safe Config**: New lazy-loaded, thread-safe configuration singleton pattern
+- **Runtime Overrides**: `set_config()` function for programmatic configuration changes
+- **Import Order Independence**: Config overrides work regardless of when modules are imported
+- **Config API**: New functions: `get_config()`, `set_config()`, `reset_config()`, `has_config_overrides()`
+- **Perfect for CLI Apps**: Easy integration with argument parsing for runtime config
+- **Test Support**: `reset_config()` for clean test isolation
+
+**Breaking Changes:**
+- Config is now accessed via `get_config()` function instead of `pg_config` object
+- For backward compatibility, `pg_config()` function still available (returns same config)
+
+### Version 1.0.2
 
 - PostgreSQL LISTEN/NOTIFY support with triggers and notifications
 - NotificationListener class for background notification handling
