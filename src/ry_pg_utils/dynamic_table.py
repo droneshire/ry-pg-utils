@@ -20,14 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 
-from ry_pg_utils.config import get_config
-from ry_pg_utils.connect import (
-    BACKEND_ID_VARIABLE,
-    ENGINE,
-    ManagedSession,
-    get_table_name,
-    init_engine,
-)
+from ry_pg_utils.connect import ENGINE, ManagedSession, get_table_name, init_engine
 
 FIELD_TYPE_MAP: T.Dict[int, str] = {
     FieldDescriptor.TYPE_DOUBLE: "float",
@@ -49,8 +42,6 @@ FIELD_TYPE_MAP: T.Dict[int, str] = {
     FieldDescriptor.TYPE_SINT32: "int",
     FieldDescriptor.TYPE_SINT64: "int",
 }
-
-ADD_BACKEND_TO_ALL = get_config().add_backend_to_all
 
 
 def _get_field_types(message_class: T.Type) -> T.Dict[str, str]:
@@ -113,8 +104,6 @@ def _create_dynamic_table(channel_name: str, pb_message: T.Type, db_name: str) -
             )
         else:
             raise ValueError(f"Unsupported field type: {ftype!r}")
-    if ADD_BACKEND_TO_ALL:
-        cols.append(Column(BACKEND_ID_VARIABLE, String(256), nullable=False))
 
     tbl = Table(tbl_name, metadata, *cols, extend_existing=True)
     metadata.create_all(engine)

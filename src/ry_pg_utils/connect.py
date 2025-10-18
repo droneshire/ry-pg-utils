@@ -1,51 +1,33 @@
 import contextlib
 import importlib
 import pkgutil
-import threading
 import typing as T
 
 from ryutils import log
-from sqlalchemy import String, create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, scoped_session, sessionmaker
 from sqlalchemy.orm.scoping import ScopedSession
 from sqlalchemy_utils import database_exists
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ry_pg_utils.config import get_config
 
-_thread_local = threading.local()
-BACKEND_ID_VARIABLE = "backend_id"
-
 ENGINE: T.Dict[str, Engine] = {}
 THREAD_SAFE_SESSION_FACTORY: T.Dict[str, ScopedSession] = {}
 
 
 # Modern SQLAlchemy 2.0 declarative base
-if get_config().add_backend_to_all:
-
-    class Base(DeclarativeBase):
-        """Base class with automatic backend_id field."""
-
-        backend_id: Mapped[str] = mapped_column(String(256), nullable=False)
-
-else:
-
-    class Base(DeclarativeBase):  # type: ignore[no-redef]
-        """Base class for all SQLAlchemy models."""
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
 
 
-def get_table_name(base_name: str, verbose: bool = False, backend_id: str | None = None) -> str:
-    if backend_id is None:
-        backend_id = get_config().backend_id
+def get_table_name(base_name: str, verbose: bool = False) -> str:
+    """Get the table name. Verbose mode prints the table name."""
     if verbose:
-        print(f"{base_name}_{backend_id}" if get_config().add_backend_to_tables else f"{base_name}")
-    # If backend_id is explicitly provided, always add it regardless of config
-    # If backend_id comes from config, respect the add_backend_to_tables setting
-    if backend_id is not None and backend_id != get_config().backend_id:
-        return f"{base_name}_{backend_id}"
-    return f"{base_name}_{backend_id}" if get_config().add_backend_to_tables else base_name
+        print(f"{base_name}")
+    return base_name
 
 
 def init_engine(uri: str, db: str, **kwargs: T.Any) -> Engine:
@@ -105,37 +87,13 @@ def _init_session_factory(db: str) -> ScopedSession:
     return THREAD_SAFE_SESSION_FACTORY[db]
 
 
-def set_backend_id(backend_id: str) -> None:
-    setattr(_thread_local, BACKEND_ID_VARIABLE, backend_id)
-
-
-def get_backend_id() -> T.Optional[str]:
-    return getattr(_thread_local, BACKEND_ID_VARIABLE, None)
-
-
-@event.listens_for(scoped_session, "before_flush")
-def receive_before_flush(session: ScopedSession, _flush_context: T.Any, _instances: T.Any) -> None:
-    backend_id = get_backend_id()
-    if not backend_id:
-        return
-
-    # Automatically add backend_id to instances that have it as a field
-    for instance in session.dirty:
-        if hasattr(instance, "backend_id") and instance.backend_id is None:
-            instance.backend_id = backend_id
-
-    for instance in session.new:
-        if hasattr(instance, "backend_id") and instance.backend_id is None:
-            instance.backend_id = backend_id
-
-
 def is_session_factory_initialized() -> bool:
     return bool(THREAD_SAFE_SESSION_FACTORY)
 
 
 @contextlib.contextmanager
 def ManagedSession(  # pylint: disable=invalid-name
-    db: T.Optional[str] = None, backend_id: T.Optional[str] = None
+    db: T.Optional[str] = None,
 ) -> T.Iterator[T.Optional[ScopedSession]]:
     """Get a session object whose lifecycle, commits and flush are managed for you.
     The session will automatically retry operations on connection errors.
@@ -154,9 +112,6 @@ def ManagedSession(  # pylint: disable=invalid-name
     if db is None:
         # assume we're just using the default db
         db = list(THREAD_SAFE_SESSION_FACTORY.keys())[0]
-
-    if backend_id is None:
-        backend_id = get_config().backend_id
 
     if db not in THREAD_SAFE_SESSION_FACTORY:
         if get_config().raise_on_use_before_init:
@@ -180,9 +135,6 @@ def ManagedSession(  # pylint: disable=invalid-name
             raise
 
     session = THREAD_SAFE_SESSION_FACTORY[db]()
-
-    if backend_id:
-        set_backend_id(backend_id)
 
     try:
         yield from execute_with_retry(session)

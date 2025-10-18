@@ -18,7 +18,6 @@ A Python utility library for PostgreSQL database operations with dynamic table c
 
 - **Connection Management**: Thread-safe PostgreSQL connection pooling with automatic retry logic and health checks
 - **Dynamic Tables**: Automatically create and manage database tables from Protocol Buffer message schemas
-- **Multi-Backend Support**: Track data across multiple backend instances with automatic ID tagging
 - **Session Management**: Context managers for safe database session handling
 - **Notification System**: Built-in PostgreSQL LISTEN/NOTIFY support with triggers and callbacks
 - **Advanced Configuration**: Lazy-loaded, thread-safe config with runtime overrides and import order independence
@@ -85,8 +84,7 @@ print(config.postgres_port)
 set_config(
     postgres_host="new-host",
     postgres_port=5433,
-    postgres_db="production_db",
-    add_backend_to_tables=True
+    postgres_db="production_db"
 )
 
 # All modules now get the updated config, regardless of import order
@@ -150,9 +148,6 @@ if has_config_overrides():
 | `ssh_port` | int\|None | From env | SSH tunnel port |
 | `ssh_user` | str\|None | From env | SSH tunnel username |
 | `ssh_key_path` | str\|None | From env | Path to SSH private key |
-| `backend_id` | str | POSTGRES_USER or hostname_ip | Unique identifier for this backend instance |
-| `add_backend_to_all` | bool | False | Add backend_id column to all tables |
-| `add_backend_to_tables` | bool | False | Append backend_id to table names |
 | `raise_on_use_before_init` | bool | True | Raise exception if DB used before initialization |
 | `do_publish_db` | bool | True | Enable database publishing features (for Redis integration) |
 | `use_local_db_only` | bool | True | Use only local database connections |
@@ -175,8 +170,7 @@ config = get_config()
 set_config(postgres_host="localhost")
 set_config(
     postgres_host="localhost",
-    postgres_port=5432,
-    add_backend_to_tables=True
+    postgres_port=5432
 )
 
 # Check override status
@@ -259,12 +253,10 @@ from ry_pg_utils.connect import (
     init_database,           # Initialize database connection
     init_engine,             # Initialize SQLAlchemy engine
     ManagedSession,          # Context manager for sessions
-    get_backend_id,          # Get current backend ID
-    set_backend_id,          # Set backend ID for thread
     get_engine,              # Get engine for database
     close_engine,            # Close database connection
     clear_db,                # Clear all connections
-    get_table_name,          # Get table name with backend suffix
+    get_table_name,          # Get table name
     is_database_initialized, # Check if database is initialized
     Base,                    # SQLAlchemy declarative base
 )
@@ -272,11 +264,9 @@ from ry_pg_utils.connect import (
 
 **Key Features:**
 
-- Thread-local backend ID tracking
 - Connection pooling with configurable parameters (pool_size, max_overflow, pool_recycle)
 - Automatic connection recovery with retry logic (using tenacity)
 - Session scoping for thread safety
-- Automatic backend_id injection before flush operations
 - Pre-ping health checks to validate connections
 - Support for auto-importing model modules
 
@@ -457,40 +447,6 @@ from ry_pg_utils.ipc.channels import (
 
 ## Advanced Usage
 
-### Multi-Backend Support
-
-When `add_backend_to_all` is enabled (default: True), all tables automatically get a `backend_id` column:
-
-```python
-from ry_pg_utils.connect import set_backend_id, ManagedSession
-from sqlalchemy import text
-
-# Set backend ID for current thread
-set_backend_id("backend_1")
-
-# All subsequent operations will include this backend_id
-# ManagedSession automatically sets the backend_id if provided
-with ManagedSession(db="myapp_db", backend_id="backend_1") as session:
-    if session:
-        # New/dirty records automatically get backend_id injected before flush
-        result = session.execute(text("SELECT * FROM my_table"))
-```
-
-### Custom Table Names
-
-When `add_backend_to_tables` is enabled (default: True), table names are automatically suffixed:
-
-```python
-from ry_pg_utils.connect import get_table_name
-from ry_pg_utils.config import pg_config
-
-# Returns "events_my_backend" if add_backend_to_tables=True
-table_name = get_table_name("events", backend_id="my_backend", verbose=True)
-
-# Configure globally
-pg_config.add_backend_to_tables = False  # Disable backend suffix
-```
-
 ### ORM Base Class
 
 Use the pre-configured base class for SQLAlchemy models:
@@ -505,9 +461,6 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
     email = Column(String(200))
-
-# If add_backend_to_all=True (default), backend_id column is automatically added
-# The backend_id is a String(256) column, nullable=False
 ```
 
 ### Auto-Importing Models

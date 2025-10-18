@@ -1,5 +1,4 @@
 import os
-import socket
 import threading
 from dataclasses import dataclass, replace
 from typing import Any, Optional
@@ -16,9 +15,6 @@ class Config:
     postgres_password: str | None
     do_publish_db: bool
     use_local_db_only: bool
-    backend_id: str
-    add_backend_to_all: bool
-    add_backend_to_tables: bool
     raise_on_use_before_init: bool
     ssh_host: str | None
     ssh_port: int | None
@@ -72,12 +68,6 @@ class ConfigManager:
             postgres_password=os.getenv("POSTGRES_PASSWORD"),
             do_publish_db=True,
             use_local_db_only=True,
-            backend_id=(
-                os.getenv("POSTGRES_USER")
-                or f"{socket.gethostname()}_{socket.gethostbyname(socket.gethostname())}"
-            ),
-            add_backend_to_all=False,
-            add_backend_to_tables=False,
             raise_on_use_before_init=True,
             ssh_host=os.getenv("SSH_HOST"),
             ssh_port=_ssh_port,

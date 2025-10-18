@@ -15,14 +15,12 @@ from ry_pg_utils.connect import (
     _init_session_factory,
     clear_db,
     close_engine,
-    get_backend_id,
     get_engine,
     get_table_name,
     init_database,
     init_engine,
     is_database_initialized,
     is_session_factory_initialized,
-    set_backend_id,
 )
 
 
@@ -67,8 +65,7 @@ class TestDynamicModelImport(unittest.TestCase):
             # Create __init__.py
             (test_pkg / "__init__.py").write_text("")
 
-            # Create a simple Python module (not SQLAlchemy model)
-            # to test that the import mechanism works
+            # Create a simple Python module to test that the import mechanism works
             model_code = """
 # Simple test module to verify import works
 TEST_MODULE_LOADED = True
@@ -199,7 +196,7 @@ class TestInitDatabaseWithModels(PostgresOnlyTestBase):
             test_pkg.mkdir()
             (test_pkg / "__init__.py").write_text("")
 
-            # Create a simple Python module (not SQLAlchemy to avoid backend_id issues)
+            # Create a simple Python module for testing
             model_code = """
 # Test module for init_database
 DB_MODELS_LOADED = True
@@ -237,27 +234,10 @@ DB_MODELS_LOADED = True
 class TestConnectUtilityFunctions(unittest.TestCase):
     """Test cases for utility functions in connect module."""
 
-    def test_get_table_name_without_backend(self) -> None:
-        """Test get_table_name without backend_id suffix."""
+    def test_get_table_name(self) -> None:
+        """Test get_table_name returns the base name."""
         table_name = get_table_name("users")
-        # This will use the current config value
-        self.assertIsInstance(table_name, str)
-
-    def test_get_table_name_with_backend(self) -> None:
-        """Test get_table_name with backend_id suffix."""
-        table_name = get_table_name("users", backend_id="test_backend")
-        # This will use the provided backend_id regardless of config
-        self.assertEqual(table_name, "users_test_backend")
-
-    def test_backend_id_operations(self) -> None:
-        """Test setting and getting backend_id."""
-        # Set a backend_id
-        set_backend_id("test_id_123")
-        self.assertEqual(get_backend_id(), "test_id_123")
-
-        # Set another one
-        set_backend_id("another_id")
-        self.assertEqual(get_backend_id(), "another_id")
+        self.assertEqual(table_name, "users")
 
     def test_is_session_factory_initialized(self) -> None:
         """Test checking if session factory is initialized."""

@@ -52,7 +52,6 @@ class TestConfigManager(unittest.TestCase):
             postgres_host="test-host",
             postgres_port=9999,
             postgres_db="test-db",
-            add_backend_to_tables=True,
         )
 
         config = get_config()
@@ -60,20 +59,19 @@ class TestConfigManager(unittest.TestCase):
         self.assertEqual(config.postgres_host, "test-host")
         self.assertEqual(config.postgres_port, 9999)
         self.assertEqual(config.postgres_db, "test-db")
-        self.assertTrue(config.add_backend_to_tables)
 
     def test_set_config_preserves_other_values(self) -> None:
         """Test that set_config only changes specified values."""
         # Get initial config
         initial_config = get_config()
-        original_backend_id = initial_config.backend_id
+        original_do_publish = initial_config.do_publish_db
 
         # Set only one value
         set_config(postgres_host="new-host")
 
         config = get_config()
         self.assertEqual(config.postgres_host, "new-host")
-        self.assertEqual(config.backend_id, original_backend_id)  # Should be unchanged
+        self.assertEqual(config.do_publish_db, original_do_publish)  # Should be unchanged
 
     def test_config_persistence_across_calls(self) -> None:
         """Test that config overrides persist across multiple get_config() calls."""
@@ -235,10 +233,7 @@ class TestConfigIntegration(unittest.TestCase):
             # Check some default values
             self.assertTrue(config.do_publish_db)
             self.assertTrue(config.use_local_db_only)
-            self.assertFalse(config.add_backend_to_all)
-            self.assertFalse(config.add_backend_to_tables)
             self.assertTrue(config.raise_on_use_before_init)
-            self.assertIsNotNone(config.backend_id)  # Should be generated
 
 
 class TestConfigEdgeCases(unittest.TestCase):
