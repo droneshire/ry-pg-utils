@@ -678,6 +678,7 @@ Ross Yeager - `ryeager12@email.com`
 ### Version 1.1.0 (Current)
 
 **Configuration System Improvements:**
+
 - **Thread-Safe Config**: New lazy-loaded, thread-safe configuration singleton pattern
 - **Runtime Overrides**: `set_config()` function for programmatic configuration changes
 - **Import Order Independence**: Config overrides work regardless of when modules are imported
@@ -686,6 +687,7 @@ Ross Yeager - `ryeager12@email.com`
 - **Test Support**: `reset_config()` for clean test isolation
 
 **Breaking Changes:**
+
 - Config is now accessed via `get_config()` function instead of `pg_config` object
 - For backward compatibility, `pg_config()` function still available (returns same config)
 
