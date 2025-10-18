@@ -181,14 +181,16 @@ class TestDbQueryInitialization(unittest.TestCase):
         self.assertTrue(db_query.is_local)
         self.assertEqual(db_query.db_name, "temp_custom_db")
 
-    @patch("ry_pg_utils.tools.db_query.config")
-    def test_init_with_config_fallback(self, mock_config: Mock) -> None:
+    @patch("ry_pg_utils.tools.db_query.get_config")
+    def test_init_with_config_fallback(self, mock_get_config: Mock) -> None:
         """Test initialization falls back to config when parameters not provided."""
-        mock_config.pg_config.postgres_host = "config_host"
-        mock_config.pg_config.postgres_port = 5432
-        mock_config.pg_config.postgres_db = "config_db"
-        mock_config.pg_config.postgres_user = "config_user"
-        mock_config.pg_config.postgres_password = "config_pass"
+        mock_config = Mock()
+        mock_config.postgres_host = "config_host"
+        mock_config.postgres_port = 5432
+        mock_config.postgres_db = "config_db"
+        mock_config.postgres_user = "config_user"
+        mock_config.postgres_password = "config_pass"
+        mock_get_config.return_value = mock_config
 
         db_query = DbQueryPsycopg2()
 

@@ -20,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 
-from ry_pg_utils.config import pg_config
+from ry_pg_utils.config import get_config
 from ry_pg_utils.connect import (
     BACKEND_ID_VARIABLE,
     ENGINE,
@@ -50,7 +50,7 @@ FIELD_TYPE_MAP: T.Dict[int, str] = {
     FieldDescriptor.TYPE_SINT64: "int",
 }
 
-ADD_BACKEND_TO_ALL = pg_config.add_backend_to_all
+ADD_BACKEND_TO_ALL = get_config().add_backend_to_all
 
 
 def _get_field_types(message_class: T.Type) -> T.Dict[str, str]:

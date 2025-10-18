@@ -11,7 +11,7 @@ import psycopg2
 from pyspark.sql import SparkSession
 from ryutils import log, modern_ssh_tunnel
 
-from ry_pg_utils import config
+from ry_pg_utils.config import get_config
 
 
 class DbQuery(abc.ABC):
@@ -38,21 +38,19 @@ class DbQuery(abc.ABC):
         self.is_local = is_local
 
         self.postgres_host = (
-            postgres_host if postgres_host is not None else config.pg_config.postgres_host
+            postgres_host if postgres_host is not None else get_config().postgres_host
         )
         self.postgres_port = (
-            postgres_port if postgres_port is not None else config.pg_config.postgres_port
+            postgres_port if postgres_port is not None else get_config().postgres_port
         )
         self.postgres_database = (
-            postgres_database if postgres_database is not None else config.pg_config.postgres_db
+            postgres_database if postgres_database is not None else get_config().postgres_db
         )
         self.postgres_user = (
-            postgres_user if postgres_user is not None else config.pg_config.postgres_user
+            postgres_user if postgres_user is not None else get_config().postgres_user
         )
         self.postgres_password = (
-            postgres_password
-            if postgres_password is not None
-            else config.pg_config.postgres_password
+            postgres_password if postgres_password is not None else get_config().postgres_password
         )
         self.postgres_uri = (
             f"postgresql://{self.postgres_user}:{self.postgres_password}@"
@@ -60,10 +58,10 @@ class DbQuery(abc.ABC):
         )
         self.postrgres_url = postrgres_url if postrgres_url is not None else self.postgres_uri
 
-        self.ssh_host = ssh_host if ssh_host is not None else config.pg_config.ssh_host
-        self.ssh_port = ssh_port if ssh_port is not None else config.pg_config.ssh_port
-        self.ssh_user = ssh_user if ssh_user is not None else config.pg_config.ssh_user
-        self.ssh_pkey = ssh_pkey if ssh_pkey is not None else config.pg_config.ssh_key_path
+        self.ssh_host = ssh_host if ssh_host is not None else get_config().ssh_host
+        self.ssh_port = ssh_port if ssh_port is not None else get_config().ssh_port
+        self.ssh_user = ssh_user if ssh_user is not None else get_config().ssh_user
+        self.ssh_pkey = ssh_pkey if ssh_pkey is not None else get_config().ssh_key_path
 
         self.db_name = f"temp_{self.postgres_database}" if is_local else self.postgres_database
 
