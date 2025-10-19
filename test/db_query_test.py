@@ -18,55 +18,77 @@ class TestDbQueryPsycopg2(PostgresOnlyTestBase):
     def setUp(self) -> None:
         """Set up test fixtures."""
         params = self.get_postgres_connection_params()
+        self.conn = None
 
         # Create a test table
-        self.conn = psycopg2.connect(
-            host=params["host"],
-            port=params["port"],
-            dbname=params["dbname"],
-            user=params["user"],
-            password=params["password"],
-        )
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS test_users (
-                    id SERIAL PRIMARY KEY,
-                    name VARCHAR(100),
-                    email VARCHAR(200),
-                    age INTEGER
+        try:
+            self.conn = psycopg2.connect(
+                host=params["host"],
+                port=params["port"],
+                dbname=params["dbname"],
+                user=params["user"],
+                password=params["password"],
+            )
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS test_users (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(100),
+                        email VARCHAR(200),
+                        age INTEGER
+                    )
+                    """
                 )
-                """
-            )
-            cursor.execute(
-                """
-                INSERT INTO test_users (name, email, age) VALUES
-                ('Alice', 'alice@example.com', 30),
-                ('Bob', 'bob@example.com', 25),
-                ('Charlie', 'charlie@example.com', 35)
-                """
-            )
-            self.conn.commit()
+                cursor.execute(
+                    """
+                    INSERT INTO test_users (name, email, age) VALUES
+                    ('Alice', 'alice@example.com', 30),
+                    ('Bob', 'bob@example.com', 25),
+                    ('Charlie', 'charlie@example.com', 35)
+                    """
+                )
+                self.conn.commit()
 
-        self.db_query = DbQueryPsycopg2(
-            postgres_host=params["host"],
-            postgres_port=int(params["port"]),
-            postgres_database=params["dbname"],
-            postgres_user=params["user"],
-            postgres_password=params["password"],
-            is_local=False,
-        )
+            self.db_query = DbQueryPsycopg2(
+                postgres_host=params["host"],
+                postgres_port=int(params["port"]),
+                postgres_database=params["dbname"],
+                postgres_user=params["user"],
+                postgres_password=params["password"],
+                is_local=False,
+            )
+        except Exception:
+            # Clean up connection if setup fails
+            if self.conn is not None and not self.conn.closed:
+                self.conn.close()
+            raise
 
     def tearDown(self) -> None:
         """Clean up after tests."""
-        if hasattr(self, "conn") and self.conn:
-            with self.conn.cursor() as cursor:
-                cursor.execute("DROP TABLE IF EXISTS test_users")
-                self.conn.commit()
-            self.conn.close()
+        # Clean up the db_query connection first
+        if hasattr(self, "db_query") and self.db_query is not None:
+            try:
+                if self.db_query.conn is not None:
+                    self.db_query.close()
+            except Exception:  # pylint: disable=broad-except
+                pass
 
-        if hasattr(self, "db_query") and self.db_query.conn:
-            self.db_query.close()
+        # Clean up the setup connection
+        if hasattr(self, "conn") and self.conn is not None:
+            try:
+                if not self.conn.closed:
+                    with self.conn.cursor() as cursor:
+                        cursor.execute("DROP TABLE IF EXISTS test_users")
+                        self.conn.commit()
+                    self.conn.close()
+            except Exception:  # pylint: disable=broad-except
+                # Ensure connection is closed even if cleanup fails
+                try:
+                    if not self.conn.closed:
+                        self.conn.close()
+                except Exception:  # pylint: disable=broad-except
+                    pass
 
     def test_initialization(self) -> None:
         """Test DbQueryPsycopg2 initialization."""

@@ -83,6 +83,13 @@ class DbQuery(abc.ABC):
         self.ssh_tunnel: modern_ssh_tunnel.SSHTunnelForwarder | None = None
         self.conn: psycopg2.extensions.connection | SparkSession | None = None
 
+    def __del__(self) -> None:
+        """Ensure connections are closed when object is deleted."""
+        try:
+            self.close()
+        except Exception:  # pylint: disable=broad-except
+            pass
+
     @staticmethod
     def db(table_name: str) -> str:
         return f'"public"."{table_name}"'
@@ -245,16 +252,29 @@ class DbQuery(abc.ABC):
         pass
 
     def close(self) -> None:
-        if isinstance(self.conn, SparkSession):
-            self.conn.stop()
-        elif isinstance(self.conn, psycopg2.extensions.connection):
-            self.conn.close()
-        if self.ssh_tunnel is not None and self.ssh_tunnel.is_active:
-            self.ssh_tunnel.stop()
-            log.print_ok_arrow("SSH tunnel closed successfully.")
+        # Close connection
+        if self.conn is not None:
+            try:
+                if isinstance(self.conn, SparkSession):
+                    self.conn.stop()
+                elif isinstance(self.conn, psycopg2.extensions.connection):
+                    if not self.conn.closed:
+                        self.conn.close()
+            except Exception as e:  # pylint: disable=broad-except
+                log.print_fail(f"Error closing database connection: {e}")
+            finally:
+                self.conn = None
 
-        self.ssh_tunnel = None
-        self.conn = None
+        # Close SSH tunnel
+        if self.ssh_tunnel is not None:
+            try:
+                if self.ssh_tunnel.is_active:
+                    self.ssh_tunnel.stop()
+                    log.print_ok_arrow("SSH tunnel closed successfully.")
+            except Exception as e:  # pylint: disable=broad-except
+                log.print_fail(f"Error closing SSH tunnel: {e}")
+            finally:
+                self.ssh_tunnel = None
 
         log.print_ok_arrow("Connection to the database closed successfully.")
 
