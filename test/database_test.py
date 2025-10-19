@@ -274,7 +274,7 @@ class DatabaseConnectionTest(PostgresOnlyTestBase):
             engine = get_engine(self.db_name)
 
             # Explicitly create the test_messages table
-            TestMessage.__table__.create(bind=engine, checkfirst=True)
+            TestMessage.__table__.create(bind=engine, checkfirst=True)  # type: ignore[attr-defined]
 
             # Insert test data
             with engine.connect() as conn:
