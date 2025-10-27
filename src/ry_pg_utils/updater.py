@@ -1,4 +1,5 @@
 import argparse
+import json
 import time
 import typing as T
 from dataclasses import dataclass, field
@@ -12,6 +13,7 @@ from ry_pg_utils.connect import close_engine, init_database, is_database_initial
 from ry_pg_utils.ipc import channels
 from ry_pg_utils.notify_trigger import NotificationListener
 from ry_pg_utils.pb_types.database_pb2 import (  # pylint: disable=no-name-in-module
+    DatabaseNotificationPb,
     PostgresMessagePb,
     PostgresPb,
 )
@@ -120,6 +122,16 @@ class DbUpdater(RedisClientBase):
                 )
 
             self.notify_trigger.start()
+
+    def _handle_database_notification(self, notification: T.Dict[str, T.Any]) -> None:
+        log.print_normal(f"Received notification: {notification}")
+        notification_pb = DatabaseNotificationPb()
+        notification_pb.utime.GetCurrentTime()
+        notification_pb.table_name = notification["table"]
+        notification_pb.channel_name = self.get_channel_name(notification["table"])
+        notification_pb.action = notification["action"]
+        notification_pb.payload = json.dumps(notification["data"])
+        self.publish(channels.DATABASE_NOTIFY_CHANNEL, notification_pb.SerializeToString())
 
     @staticmethod
     def get_channel_name(table_name: str) -> str:
