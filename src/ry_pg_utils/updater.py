@@ -120,6 +120,7 @@ class DbUpdater(RedisClientBase):
                 )
 
             self.notify_trigger.start()
+
     @staticmethod
     def get_channel_name(table_name: str) -> str:
         return f"{table_name}_notify"
