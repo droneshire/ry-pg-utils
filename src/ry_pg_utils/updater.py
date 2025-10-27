@@ -50,6 +50,7 @@ class DbUpdater(RedisClientBase):
     verbose: Verbose
     logging_error_db_callback: T.Optional[T.Callable[[str, str], None]] = None
     models_module: T.Optional[str] = None
+    subscribe_details: T.Optional[T.Dict[str, T.List[str]]] = None
 
     # Computed fields (not in __init__)
     do_publish_db: bool = field(init=False)
@@ -57,7 +58,6 @@ class DbUpdater(RedisClientBase):
     last_db_init_retry_time: float = field(init=False, default=0.0)
     use_local_db_only: bool = field(init=False)
     database_settings_msg: T.Optional[PostgresInfo] = field(init=False, default=None)
-    subscribe_details: T.Optional[T.Dict[str, T.List[str]]] = field(init=False, default=None)
     notify_trigger: NotificationListener = field(init=False)
 
     def __post_init__(self) -> None:
