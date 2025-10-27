@@ -120,6 +120,9 @@ class DbUpdater(RedisClientBase):
                 )
 
             self.notify_trigger.start()
+    @staticmethod
+    def get_channel_name(table_name: str) -> str:
+        return f"{table_name}_notify"
 
     def update_db(self, postgres_info: PostgresInfo) -> None:
         self.postgres_info = postgres_info
