@@ -80,7 +80,6 @@ class DbUpdater(RedisClientBase):
         self.last_db_init_retry_time = 0.0
         self.use_local_db_only = self.args.use_local_db_only if self.args else True
         self.database_settings_msg = None
-        self.subscribe_details = None
         self.notify_trigger = NotificationListener(self.postgres_info.db_name)
 
     @message_handler
