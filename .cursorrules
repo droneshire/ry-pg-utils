@@ -17,3 +17,4 @@ Run at the end of every long run action that is taken. In other words, after a f
 - If any make steps fail, fix and re-run.
 - Do not install any packages or attempt to run anything as su to fix anything
 - You can run `make test TESTMODULE=<name_of_test_python_file>` to directly run a specific test vs all of them
+- Never to lazy imports

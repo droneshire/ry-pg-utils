@@ -1,7 +1,7 @@
 import argparse
 import time
 import typing as T
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ry_redis_bus.helpers import RedisInfo, message_handler
 from ry_redis_bus.redis_client_base import RedisClientBase
@@ -10,6 +10,7 @@ from ryutils.verbose import Verbose
 
 from ry_pg_utils.connect import close_engine, init_database, is_database_initialized
 from ry_pg_utils.ipc import channels
+from ry_pg_utils.notify_trigger import NotificationListener
 from ry_pg_utils.pb_types.database_pb2 import (  # pylint: disable=no-name-in-module
     PostgresMessagePb,
     PostgresPb,
@@ -43,39 +44,44 @@ def get_database_settings(
 
 @dataclass
 class DbUpdater(RedisClientBase):
-    do_publish_db: bool
-    postgres_info: PostgresInfo
-    logging_error_db_callback: T.Callable[[str, str], None] | None
-    models_module: T.Optional[str]
+    # Init parameters
+    redis_info: RedisInfo
+    args: argparse.Namespace
+    verbose: Verbose
+    logging_error_db_callback: T.Optional[T.Callable[[str, str], None]] = None
+    models_module: T.Optional[str] = None
 
-    def __init__(
-        self,
-        redis_info: RedisInfo,
-        args: argparse.Namespace,
-        verbose: Verbose,
-        logging_error_db_callback: T.Callable[[str, str], None] | None = None,
-        models_module: T.Optional[str] = None,
-    ):
+    # Computed fields (not in __init__)
+    do_publish_db: bool = field(init=False)
+    postgres_info: PostgresInfo = field(init=False)
+    last_db_init_retry_time: float = field(init=False, default=0.0)
+    use_local_db_only: bool = field(init=False)
+    database_settings_msg: T.Optional[PostgresInfo] = field(init=False, default=None)
+    subscribe_details: T.Optional[T.Dict[str, T.List[str]]] = field(init=False, default=None)
+    notify_trigger: NotificationListener = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Initialize computed fields after dataclass initialization."""
         super().__init__(
-            redis_info=redis_info,
-            verbose=verbose,
+            redis_info=self.redis_info,
+            verbose=self.verbose,
         )
 
-        self.do_publish_db = args.do_publish_db if args else True
+        self.do_publish_db = self.args.do_publish_db if self.args else True
 
         self.postgres_info = PostgresInfo(
-            db_name=args.postgres_db,
-            user=args.postgres_user,
-            password=args.postgres_password,
-            host=args.postgres_host,
-            port=args.postgres_port,
+            db_name=self.args.postgres_db,
+            user=self.args.postgres_user,
+            password=self.args.postgres_password,
+            host=self.args.postgres_host,
+            port=self.args.postgres_port,
         )
 
         self.last_db_init_retry_time = 0.0
-        self.use_local_db_only = args.use_local_db_only if args else True
-        self.database_settings_msg: T.Optional[PostgresInfo] = None
-        self.logging_error_db_callback = logging_error_db_callback
-        self.models_module = models_module
+        self.use_local_db_only = self.args.use_local_db_only if self.args else True
+        self.database_settings_msg = None
+        self.subscribe_details = None
+        self.notify_trigger = NotificationListener(self.postgres_info.db_name)
 
     @message_handler
     def handle_database_config_message(self, message_pb: PostgresMessagePb) -> None:
@@ -101,6 +107,20 @@ class DbUpdater(RedisClientBase):
             log.print_fail(f"DbUpdater initialized with null database info: {self.postgres_info}")
 
             self.subscribe(channels.DATABASE_CONFIG_CHANNEL, self.handle_database_config_message)
+
+        if self.subscribe_details:
+            for table, columns in self.subscribe_details.items():
+                # pylint: disable=no-member
+                channel = self.get_channel_name(table)  # type: ignore[attr-defined]
+                self.notify_trigger.create_listener(
+                    table_name=table, channel_name=channel, columns=columns if columns else None
+                )
+                # pylint: disable=no-member
+                self.notify_trigger.add_callback(
+                    channel, self._handle_database_notification  # type: ignore[attr-defined]
+                )
+
+            self.notify_trigger.start()
 
     def update_db(self, postgres_info: PostgresInfo) -> None:
         self.postgres_info = postgres_info

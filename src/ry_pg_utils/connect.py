@@ -151,6 +151,28 @@ def is_database_initialized(db: str) -> bool:
     return db in THREAD_SAFE_SESSION_FACTORY
 
 
+def delete_tables(db: str, tables: T.List[str] | None = None) -> None:
+    """Delete tables from the database."""
+    # pylint: disable=too-many-nested-blocks
+    if tables is None:
+        # Walk through all modules to find Table classes
+        for module_info in pkgutil.walk_packages():
+            try:
+                module = importlib.import_module(module_info.name)
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if isinstance(attr, type) and issubclass(attr, Base):
+                        # Drop table for each model class
+                        if hasattr(attr, "__table__"):
+                            attr.__table__.drop(bind=get_engine(db))  # type: ignore[attr-defined]
+            except (ImportError, AttributeError):
+                continue
+    else:
+        # Drop specific tables
+        for table in tables:
+            Base.metadata.tables[table].drop(bind=get_engine(db))
+
+
 def _import_models_from_module(module_path: str) -> None:
     """
     Dynamically import all model classes from a given module path.

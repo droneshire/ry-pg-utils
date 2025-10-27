@@ -15,7 +15,7 @@ import psycopg2
 from google.protobuf.timestamp_pb2 import Timestamp  # pylint: disable=no-name-in-module
 from sqlalchemy import Column, Integer, String, text
 
-from ry_pg_utils.connect import Base, close_engine, get_engine, init_database
+from ry_pg_utils.connect import Base, close_engine, delete_tables, get_engine, init_database
 from ry_pg_utils.pb_types.database_pb2 import (  # pylint: disable=no-name-in-module
     DatabaseNotificationPb,
     PostgresMessagePb,
@@ -294,6 +294,63 @@ class DatabaseConnectionTest(PostgresOnlyTestBase):
                 rows = result.fetchall()
                 self.assertEqual(len(rows), 1)
                 self.assertEqual(rows[0][1], "Hello World")  # content column
+
+        finally:
+            self.tear_down_db()
+
+    def test_delete_specific_tables(self) -> None:
+        """Test deleting specific tables from the database."""
+        self.set_up_db()
+        try:
+            engine = get_engine(self.db_name)
+
+            # Create test_messages table and ensure it's in metadata
+            TestMessage.__table__.create(bind=engine, checkfirst=True)  # type: ignore[attr-defined]
+
+            # Refresh metadata to ensure the table is registered
+            Base.metadata.reflect(bind=engine, only=["test_messages"])
+
+            # Verify table exists by querying it
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(
+                        """
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_name = 'test_messages'
+                        )
+                    """
+                    )
+                )
+                exists = result.scalar()
+                self.assertTrue(exists, "test_messages table should exist")
+
+            # Verify table is in metadata
+            self.assertIn("test_messages", Base.metadata.tables)
+
+            # Find the correct table key in metadata (it should be just 'test_messages')
+            table_keys = [k for k in Base.metadata.tables.keys() if "test_messages" in str(k)]
+            self.assertTrue(table_keys, "test_messages should be in Base.metadata.tables")
+
+            # Delete the specific table using the correct key from metadata
+            delete_tables(self.db_name, tables=[table_keys[0]])
+
+            # Verify table no longer exists
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text(
+                        """
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_name = 'test_messages'
+                        )
+                    """
+                    )
+                )
+                exists = result.scalar()
+                self.assertFalse(exists, "test_messages table should not exist after deletion")
 
         finally:
             self.tear_down_db()
